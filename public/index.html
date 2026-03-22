@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -300,10 +300,9 @@ footer .fc{font-family:var(--fm);font-size:10px;color:rgba(245,242,235,.3)}
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG — fill these in after setting up Supabase
 // ─────────────────────────────────────────────────────────────────────────────
-const SUPABASE_URL      = 'https://ifwxfdpqfudtxjfpimcj.supabase.co';       // e.g. https://abcxyz.supabase.co
-const SUPABASE_ANON_KEY = 'sb_publishable_cPIX_3d4la65ipvUrs62Kg_6R5iOChg
-';  // safe to be public
-const GEMINI_API_KEY    = 'AIzaSyA7_oW-EGu-viUSinwgyog8pT8UHQEYHNk';
+const SUPABASE_URL      = 'https://ifwxfdpqfudtxjfpimcj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_cPIX_3d4la65ipvUrs62Kg_6R5iOChg';  // safe to be public
+const GEMINI_KEY        = '';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
@@ -615,19 +614,18 @@ async function fetchTerm(term, ctx) {
     ? `The user clicked this term while reading: "${ctx}". Include context_note (1-2 sentences) explaining how this term applies in that article.`
     : 'No article context.';
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const prompt = `Finance explainer for young Australians Year 11-12 level. Explain: "${term}". ${ci}\nReturn ONLY valid JSON with these exact keys: term, category (one of Investing/Markets/Economics/Personal Finance/Banking/Trading/Crypto), complexity (1-5), plain_english (max 20 words), explanation (2-3 paragraphs), example (2-3 sentences Australian context), context_note (if context provided), related (array of 4 terms). No markdown, no backticks, just JSON.`;
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content:
-          `Finance explainer for young Australians Year 11-12 level. Explain: "${term}". ${ci}\nReturn ONLY valid JSON with these exact keys: term, category (one of Investing/Markets/Economics/Personal Finance/Banking/Trading/Crypto), complexity (1-5), plain_english (max 20 words), explanation (2-3 paragraphs), example (2-3 sentences Australian context), context_note (if context provided), related (array of 4 terms). No markdown, no backticks, just JSON.`
-        }]
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 1000 },
       })
     });
     const d = await r.json();
-    return JSON.parse((d.content?.[0]?.text || '{}').replace(/```json|```/g,'').trim());
+    const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    return JSON.parse(text.replace(/```json|```/g, '').trim());
   } catch {
     return { term, category:'Finance', complexity:1, plain_english:'Could not load this term.', explanation:'Please try again.', example:'', related:[] };
   }
