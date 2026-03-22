@@ -1,9 +1,5 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // Plainly — News Pipeline v2
-// RSS feeds → scrape full article text → Claude rewrites → Supabase
-//
-// No NewsAPI needed. Sources are real outlets, content is real text.
-// ─────────────────────────────────────────────────────────────────────────────
+// RSS feeds → scrape full article text → Gemini rewrites → Supabase
 
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
@@ -12,9 +8,9 @@ import { parse as parseHTML } from 'node-html-parser';
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_KEY    = process.env.GEMINI_API_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY || !ANTHROPIC_KEY) {
+if (!SUPABASE_URL || !SUPABASE_KEY || !GEMINI_KEY) {
   console.error('❌ Missing environment variables. Check your GitHub secrets.');
   process.exit(1);
 }
@@ -91,8 +87,7 @@ async function scrapeArticle(url) {
       }
     }
     if (text.length < 300) {
-      const paras = root.querySelectorAll('p');
-      text = paras.map(p => p.text.trim()).filter(t => t.length > 40).join('\n\n');
+      text = root.querySelectorAll('p').map(p => p.text.trim()).filter(t => t.length > 40).join('\n\n');
     }
     return text.length > 200 ? text.substring(0, 4000) : null;
   } catch {
@@ -100,11 +95,12 @@ async function scrapeArticle(url) {
   }
 }
 
-async function processWithClaude(item, fullText) {
+async function processWithGemini(item, fullText) {
   const hasFullText   = !!fullText;
   const sourceContent = hasFullText
     ? `Full article text:\n${fullText}`
     : `RSS summary only:\n${item.summary}`;
+
   const prompt = `You are the AI editor for Plainly — a finance and news site written in plain English for young Australians (Year 11-12 level).
 
 Source outlet: ${item.source}
@@ -116,7 +112,7 @@ ${!hasFullText ? '⚠ Only a summary was available. Write conservatively — onl
 Tasks:
 1. Rewrite headline in plain English (max 12 words, accurate)
 2. Write a deck — one sentence on why this matters to a young Australian (max 25 words)
-3. Article body: 4-5 paragraphs, 2 subheadings with <h3> tags, one <blockquote> with attributed quote. Plain English, strictly neutral, only facts from source material.
+3. Article body: 4-5 paragraphs, 2 subheadings with <h3> tags, one <blockquote> with attributed quote. Plain English, strictly neutral, only facts from source.
 4. Wrap finance terms: <span class="ft" data-term="TERM" data-ctx="5-7 word summary">TERM</span>
 5. Classify section: aus, world, us, biz, tech, pol, or crypto
 6. Short flag label (e.g. "Monetary Policy", "Bitcoin", "Housing")
@@ -124,21 +120,24 @@ Tasks:
 8. Two complementary hex colours for image placeholder
 9. Set "reliable" false if source material too thin
 
-Return ONLY raw JSON, no markdown:
+Return ONLY raw JSON, no markdown, no backticks:
 {"headline":"...","deck":"...","section":"aus|world|us|biz|tech|pol|crypto","flag":"...","body_html":"...","sources":[{"n":"Outlet","d":"angle"}],"terms":["term1"],"colors":["#hex1","#hex2"],"reliable":true}`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1500, messages: [{ role: 'user', content: prompt }] }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 1500 },
+      }),
     });
     const data  = await res.json();
-    const text  = data.content?.[0]?.text || '{}';
+    const text  = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     const clean = text.replace(/```json|```/g, '').trim();
     return JSON.parse(clean);
   } catch (err) {
-    console.error(`  ✗ Claude error: ${err.message}`);
+    console.error(`  ✗ Gemini error: ${err.message}`);
     return null;
   }
 }
@@ -208,7 +207,7 @@ async function main() {
       fullText = await scrapeArticle(item.url);
       console.log(fullText ? ` ✓ ${fullText.length} chars` : ' ✗ using RSS summary');
     }
-    const result = await processWithClaude(item, fullText);
+    const result = await processWithGemini(item, fullText);
     if (!result) { errors++; continue; }
     if (result.reliable === false) { console.log('  ↩ Skipped — too thin'); skipped++; continue; }
     await storeArticle(result, item);
