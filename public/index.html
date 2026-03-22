@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -302,7 +302,7 @@ footer .fc{font-family:var(--fm);font-size:10px;color:rgba(245,242,235,.3)}
 // ─────────────────────────────────────────────────────────────────────────────
 const SUPABASE_URL      = 'https://ifwxfdpqfudtxjfpimcj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_cPIX_3d4la65ipvUrs62Kg_6R5iOChg';  // safe to be public
-const GEMINI_KEY        = '';
+const GEMINI_KEY        = '';  // TODO: set up Netlify function proxy — do not hardcode key here
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
@@ -537,9 +537,11 @@ function openArt(id) {
     <div class="ad">${a.deck}</div>
     <div class="am"><span>${date}</span>${pills}</div>
     <div class="aimg" style="background:linear-gradient(135deg,${colors[0]},${colors[1]})">
-      <span style="font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,235,.35);position:relative;z-index:1">Image · To be added at launch</span>
+      ${a.image_url
+        ? `<img src="${a.image_url}" alt="${a.headline}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">`
+        : `<span style="font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,235,.35);position:relative;z-index:1">${a.flag}</span>`
+      }
     </div>
-    <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:28px;letter-spacing:.5px">Image: To be added at launch</div>
     <div class="body">${a.body_html}</div>
     <div class="srcb"><div class="srcl">Sources and Credits</div>${srcRows}</div>
     <div class="atags">
