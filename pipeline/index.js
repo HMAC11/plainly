@@ -23,15 +23,13 @@ const parser = new Parser({ timeout: 10000 });
 // Reuters RSS has been blocked since 2023. Replaced with AP News, BBC, FT.
 // SMH /rss/money.xml and /rss/business/companies.xml return 404 — fixed URLs.
 const FEEDS = [
-  // Australia
+  // Australia — business/economics/policy focused only
   { url: 'https://www.abc.net.au/news/feed/51120/rss.xml',                     section: 'aus',    label: 'ABC News Business' },
-  { url: 'https://www.abc.net.au/news/feed/45910/rss.xml',                     section: 'aus',    label: 'ABC News Top Stories' },
   { url: 'https://www.theguardian.com/australia-news/rss',                     section: 'aus',    label: 'Guardian Australia' },
   { url: 'https://www.smh.com.au/rss/business.xml',                            section: 'aus',    label: 'SMH Business' },
-  { url: 'https://www.smh.com.au/rss/feed.xml',                                section: 'aus',    label: 'SMH Top Stories' },
+  { url: 'https://www.smh.com.au/rss/money.xml',                               section: 'aus',    label: 'SMH Money' },
   // World
   { url: 'https://feeds.bbci.co.uk/news/world/rss.xml',                        section: 'world',  label: 'BBC World' },
-  { url: 'https://apnews.com/rss',                                              section: 'world',  label: 'AP News' },
   { url: 'https://www.theguardian.com/world/rss',                              section: 'world',  label: 'Guardian World' },
   // US
   { url: 'https://feeds.bbci.co.uk/news/business/rss.xml',                     section: 'us',     label: 'BBC Business' },
@@ -39,7 +37,6 @@ const FEEDS = [
   { url: 'https://feeds.marketwatch.com/marketwatch/topstories/',              section: 'us',     label: 'MarketWatch' },
   // Business
   { url: 'https://www.theguardian.com/business/rss',                           section: 'biz',    label: 'Guardian Business' },
-  { url: 'https://www.afr.com/rss',                                            section: 'biz',    label: 'AFR' },
   // Tech
   { url: 'https://feeds.arstechnica.com/arstechnica/index',                    section: 'tech',   label: 'Ars Technica' },
   { url: 'https://www.theguardian.com/technology/rss',                         section: 'tech',   label: 'Guardian Technology' },
@@ -52,6 +49,21 @@ const FEEDS = [
   { url: 'https://decrypt.co/feed',                                            section: 'crypto', label: 'Decrypt' },
   { url: 'https://www.theblock.co/rss.xml',                                    section: 'crypto', label: 'The Block' },
 ];
+
+// Topics that are NOT relevant to Plainly — filtered before sending to Gemini
+const IRRELEVANT_KEYWORDS = [
+  'AFL', 'NRL', 'cricket', 'tennis', 'golf', 'football', 'soccer', 'rugby',
+  'NBA', 'NFL', 'EPL', 'Premier League', 'World Cup', 'Olympics',
+  'celebrity', 'reality TV', 'entertainment', 'music', 'movie', 'film',
+  'Oscars', 'Grammy', 'Chappell Roan', 'Taylor Swift', 'Matildas',
+  'recipe', 'horoscope', 'crossword', 'puzzle',
+  'Rapid Recap', 'Match Report', 'Live Blog', 'live updates',
+];
+
+function isRelevant(title) {
+  const t = title.toLowerCase();
+  return !IRRELEVANT_KEYWORDS.some(kw => t.includes(kw.toLowerCase()));
+}
 
 // ─── FEED FETCHING ────────────────────────────────────────────────────────────
 
@@ -144,7 +156,7 @@ Tasks:
 6. Short flag label (e.g. "Monetary Policy", "Bitcoin", "Housing")
 7. List 2-4 real outlets covering this story with 1 sentence each on their angle
 8. Two complementary hex colours for image placeholder
-9. Set "reliable" false if source material too thin
+9. Set "reliable" false if source material too thin, OR if the story is not relevant to finance, economics, business, technology, or politics (e.g. celebrity gossip, sport, entertainment). This is a finance and news site — reject anything that doesn't belong.
 
 CRITICAL: Return ONLY a raw JSON object. No markdown. No backticks. No explanation. No wrapper object.
 The JSON must use exactly these keys: headline, deck, section, flag, body_html, sources, terms, colors, reliable
@@ -275,6 +287,10 @@ async function main() {
   const seen = new Set();
   const unique = allItems.filter(item => {
     if (!item.title || seen.has(item.title)) return false;
+    if (!isRelevant(item.title)) {
+      console.log(`  ↩ Filtered (off-topic): ${item.title.substring(0, 60)}`);
+      return false;
+    }
     seen.add(item.title); return true;
   });
   console.log(`Found ${unique.length} unique articles`);
