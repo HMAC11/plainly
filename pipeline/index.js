@@ -211,6 +211,16 @@ async function main() {
     if (!result) { errors++; continue; }
     if (result.reliable === false) { console.log('  ↩ Skipped — too thin'); skipped++; continue; }
     await storeArticle(result, item);
+      // --- SAVE ARTICLE TO FILE ---
+  const fs = require('fs');
+  const path = require('path');
+  const safeTitle = (result.headline || item.title)
+                      .replace(/[^a-z0-9 ]/gi, '_')
+                      .toLowerCase()
+                      .substring(0, 70);
+  const filePath = path.join(__dirname, 'output', `${safeTitle}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
+  console.log(`  💾 Saved to output: ${filePath}`);
     stored++;
     await new Promise(r => setTimeout(r, 800));
   }
