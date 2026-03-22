@@ -1,10 +1,11 @@
 // Plainly — News Pipeline v2
 // RSS feeds → scrape full article text → Gemini rewrites → Supabase
-
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 import Parser from 'rss-parser';
 import { parse as parseHTML } from 'node-html-parser';
+import fs from 'fs';
+import path from 'path';
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY;
@@ -212,17 +213,17 @@ async function main() {
     if (result.reliable === false) { console.log('  ↩ Skipped — too thin'); skipped++; continue; }
     await storeArticle(result, item);
       // --- SAVE ARTICLE TO FILE ---
-  const fs = require('fs');
-  const path = require('path');
-  const safeTitle = (result.headline || item.title)
-                      .replace(/[^a-z0-9 ]/gi, '_')
-                      .toLowerCase()
-                      .substring(0, 70);
-  const filePath = path.join(__dirname, 'output', `${safeTitle}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
-  console.log(`  💾 Saved to output: ${filePath}`);
-    stored++;
-    await new Promise(r => setTimeout(r, 800));
+// --- SAVE ARTICLE TO FILE ---
+const safeTitle = (result.headline || item.title)
+                    .replace(/[^a-z0-9 ]/gi, '_')
+                    .toLowerCase()
+                    .substring(0, 70);
+
+const filePath = path.join(process.cwd(), 'pipeline', 'output', `${safeTitle}.json`);
+fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
+console.log(`  💾 Saved to output: ${filePath}`);
+stored++;
+await new Promise(r => setTimeout(r, 800));
   }
   await cleanOldArticles();
   console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
