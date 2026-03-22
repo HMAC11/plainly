@@ -152,11 +152,31 @@ Example shape (values are placeholders):
         generationConfig: { temperature: 0.4, maxOutputTokens: 1500 },
       }),
     });
+    if (!res.ok) {
+      console.error(`  ✗ Gemini HTTP error: ${res.status} ${res.statusText}`);
+      const errBody = await res.text();
+      console.error(`  ✗ Gemini error body: ${errBody.substring(0, 300)}`);
+      return null;
+    }
+
     const data = await res.json();
-    const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Log any API-level error (quota exceeded, invalid key, etc.)
+    if (data.error) {
+      console.error(`  ✗ Gemini API error ${data.error.code}: ${data.error.message}`);
+      return null;
+    }
+
+    // Log finish reason if generation was blocked or stopped early
+    const candidate = data.candidates?.[0];
+    if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+      console.error(`  ✗ Gemini stopped early: ${candidate.finishReason}`);
+    }
+
+    const raw = candidate?.content?.parts?.[0]?.text || '';
 
     if (!raw) {
-      console.error('  ✗ Gemini returned empty response');
+      console.error('  ✗ Gemini returned empty response — full response:', JSON.stringify(data).substring(0, 400));
       return null;
     }
 
