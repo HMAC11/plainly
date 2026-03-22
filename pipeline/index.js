@@ -277,8 +277,13 @@ async function main() {
 
   if (toProcess.length === 0) { await cleanOldArticles(); return; }
 
+  // Cap at 12 per run to stay under Gemini free tier (15 req/min)
+  // Pipeline runs 4x/day so this is plenty of throughput
+  const batch = toProcess.slice(0, 12);
+  console.log(`Processing batch of ${batch.length} (capped at 12 for rate limit)`);
+
   let stored = 0, skipped = 0, errors = 0;
-  for (const item of toProcess) {
+  for (const item of batch) {
     console.log(`\n→ [${item.section}] ${item.source}: ${item.title.substring(0, 65)}`);
     let fullText = null;
     if (item.url) {
@@ -304,7 +309,7 @@ async function main() {
     console.log(`  💾 Saved to output: ${filePath}`);
 
     stored++;
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 5000));  // 5s delay = stay under 15 req/min free tier
   }
   await cleanOldArticles();
   console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
