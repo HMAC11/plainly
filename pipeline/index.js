@@ -1,235 +1,697 @@
-// Plainly — News Pipeline v2
-// RSS feeds → scrape full article text → Gemini rewrites → Supabase
-import { createClient } from '@supabase/supabase-js';
-import fetch from 'node-fetch';
-import Parser from 'rss-parser';
-import { parse as parseHTML } from 'node-html-parser';
-import fs from 'fs';
-import path from 'path';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plainly — Finance News, Explained Simply</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400;1,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#0f0e0c;--paper:#f5f2eb;--paper2:#ede9df;--paper3:#e3ddd1;--accent:#d4500a;--accent2:#1a6b3c;--muted:#7a7060;--b1:rgba(15,14,12,0.1);--b2:rgba(15,14,12,0.2);--tc:#c47000;--tbg:rgba(196,112,0,0.12);--fd:'Playfair Display',serif;--fb:'Instrument Sans',sans-serif;--fm:'IBM Plex Mono',monospace}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--fb);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none;z-index:900}
+.mast{border-bottom:3px double var(--b2);padding:14px 48px;display:flex;align-items:center;justify-content:space-between}
+.mc{text-align:center;flex:1}
+.sn{font-family:var(--fd);font-size:56px;font-weight:900;letter-spacing:-2px;line-height:1}
+.st{font-family:var(--fm);font-size:10px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-top:3px}
+.ms{width:160px;font-family:var(--fm);font-size:10px;color:var(--muted);line-height:1.7}
+.ms.r{text-align:right}
+.nav{border-bottom:1px solid var(--b2);padding:0 48px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.ni{font-family:var(--fm);font-size:11px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:12px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.ni:hover{color:var(--ink)}.ni.active{color:var(--ink);border-bottom-color:var(--ink)}
+.ni.dn{margin-left:auto;color:var(--accent)}.ni.dn:hover,.ni.dn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.ticker{background:var(--ink);color:var(--paper);padding:7px 0;overflow:hidden;white-space:nowrap}
+.tt{display:none}.tt.active{display:block}
+.ti{display:inline-block;animation:scroll 36s linear infinite;font-family:var(--fm);font-size:11px;letter-spacing:.5px}
+.tk{display:inline-block;padding:0 20px}
+.up{color:#6ddc9a}.dn2{color:#f07060}.neu{color:rgba(245,242,235,.55)}.sep{opacity:.3}
+.page{max-width:1160px;margin:0 auto;padding:0 48px}
+.tab{display:none}.tab.active{display:block}
+.flag{font-family:var(--fm);font-size:9.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);border-top:3px solid var(--accent);padding-top:8px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.nb{background:rgba(26,107,60,.1);color:var(--accent2);border:1px solid rgba(26,107,60,.2);padding:2px 8px;border-radius:2px;font-size:9px;letter-spacing:1px}
+.sh{font-family:var(--fd);font-weight:900;letter-spacing:-.4px;line-height:1.15;margin-bottom:10px;cursor:pointer;transition:color .15s}
+.sh:hover{color:var(--accent)}
+.sm{font-family:var(--fm);font-size:10px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sp{background:var(--paper3);padding:2px 7px;border-radius:2px;font-size:9px;letter-spacing:1px;white-space:nowrap}
+.sb{font-size:14px;line-height:1.75}.sb p{margin-bottom:10px}.sb p:last-child{margin-bottom:0}
+.rm{display:inline-block;margin-top:12px;font-family:var(--fm);font-size:11px;letter-spacing:1px;color:var(--accent);cursor:pointer;border-bottom:1px solid var(--accent);padding-bottom:1px;text-transform:uppercase;transition:opacity .15s}
+.rm:hover{opacity:.7}
+.ft{color:var(--tc);background:var(--tbg);border-bottom:1px dashed var(--tc);cursor:pointer;padding:0 2px;border-radius:2px;transition:background .15s}
+.ft:hover{background:rgba(196,112,0,.22)}
+.fg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:2px solid var(--b2);margin-top:32px}
+.ls{grid-column:1/3;border-right:1px solid var(--b2);padding:0 32px 32px 0}
+.ss{padding:0 0 32px 32px;display:flex;flex-direction:column;gap:0}
+.si{border-top:1px solid var(--b1);padding-top:20px;margin-top:20px}.si:first-child{border-top:none;padding-top:0;margin-top:0}
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--b2);margin:32px 0}
+.sc{padding:24px 24px 24px 0;border-right:1px solid var(--b1)}.sc:last-child{padding-right:0;border-right:none;padding-left:24px}.sc:nth-child(2){padding:24px}
+.rh{display:flex;align-items:baseline;gap:16px;border-top:3px solid var(--ink);border-bottom:1px solid var(--b2);padding:10px 0;margin:36px 0 24px}
+.rt{font-family:var(--fd);font-size:26px;font-weight:900;letter-spacing:-.5px}
+.rs{font-family:var(--fm);font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+.rg{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-bottom:40px}
+.rc{padding:0 20px 0 0;border-right:1px solid var(--b1)}.rc:last-child{padding-right:0;padding-left:20px;border-right:none}.rc:nth-child(2),.rc:nth-child(3){padding:0 20px}
+.rg2{display:grid;grid-template-columns:repeat(2,1fr);gap:0;border-top:1px solid var(--b2);padding-top:32px;margin-bottom:40px}
+.rc2{padding:24px 24px 24px 0;border-right:1px solid var(--b1)}.rc2:last-child{padding-right:0;padding-left:24px;border-right:none}
+.aov{position:fixed;inset:0;background:var(--paper);z-index:700;overflow-y:auto;display:none}
+.aov.open{display:block}
+.ar{max-width:740px;margin:0 auto;padding:48px 32px 100px}
+.ab{display:flex;align-items:center;gap:8px;font-family:var(--fm);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;margin-bottom:40px;transition:color .15s;border:none;background:none}
+.ab::before{content:'←';font-size:14px}.ab:hover{color:var(--ink)}
+.af{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);border-top:3px solid var(--accent);padding-top:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.ah{font-family:var(--fd);font-size:40px;font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:16px}
+.ad{font-family:var(--fd);font-size:18px;font-style:italic;font-weight:400;color:var(--muted);line-height:1.55;margin-bottom:24px;border-bottom:1px solid var(--b2);padding-bottom:24px}
+.am{font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:32px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.aimg{width:100%;height:240px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border-radius:2px}
+.aimg::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.04) 0,rgba(0,0,0,.04) 1px,transparent 1px,transparent 8px)}
+.body{font-size:16.5px;line-height:1.85}.body p{margin-bottom:20px}
+.body h3{font-family:var(--fd);font-size:21px;font-weight:700;margin:30px 0 12px;letter-spacing:-.3px}
+.body blockquote{border-left:3px solid var(--accent);padding:12px 20px;margin:24px 0;font-style:italic;font-size:15.5px;color:var(--muted);background:var(--paper2)}
+.srcb{margin-top:48px;padding-top:20px;border-top:2px solid var(--b2)}
+.srcl{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.srcr{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--b1)}.srcr:last-child{border-bottom:none;margin-bottom:0}
+.srcn{font-family:var(--fm);font-size:12px;font-weight:500}
+.srcd{font-size:12px;color:var(--muted);line-height:1.5}
+.atags{margin-top:24px;display:flex;flex-wrap:wrap;gap:8px}
+.atag{background:var(--paper3);font-family:var(--fm);font-size:10.5px;padding:5px 12px;cursor:pointer;color:var(--muted);transition:all .15s;border:1px solid var(--b2)}.atag:hover{background:var(--ink);color:var(--paper)}
+.tov{position:fixed;inset:0;background:rgba(15,14,12,.55);z-index:800;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+.tov.open{display:flex}
+.tp{background:var(--paper);border-top:3px solid var(--ink);width:100%;max-width:700px;max-height:88vh;overflow-y:auto}
+.tph{background:var(--ink);color:var(--paper);padding:16px 28px;display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;z-index:1;gap:12px}
+.tpt{font-family:var(--fd);font-size:14px;font-weight:700;font-style:italic}
+.tpc{font-family:var(--fm);font-size:9px;color:rgba(245,242,235,.45);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
+.tcl{background:none;border:none;color:rgba(245,242,235,.5);font-size:20px;cursor:pointer;padding:2px 8px;transition:color .15s;flex-shrink:0;line-height:1}.tcl:hover{color:var(--paper)}
+.tbody{padding:24px 28px}
+.tterm{font-family:var(--fd);font-size:32px;font-weight:900;letter-spacing:-.5px;margin-bottom:4px}
+.tcat{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:18px;display:flex;align-items:center;gap:12px}
+.tdb{display:flex;gap:3px}.tdb2{width:14px;height:4px;background:var(--paper3);border-radius:1px}.tdb2.on{background:var(--accent)}
+.tpl{font-family:var(--fd);font-size:17px;font-weight:700;font-style:italic;color:var(--accent);border-left:3px solid var(--accent);padding-left:16px;margin-bottom:18px;line-height:1.4}
+.tcn{background:rgba(196,112,0,.08);border:1px solid rgba(196,112,0,.2);border-radius:4px;padding:10px 14px;font-size:13px;font-family:var(--fm);color:var(--tc);margin-bottom:18px;line-height:1.5}
+.tcn strong{color:var(--ink);font-family:var(--fb)}
+.ttxt{font-size:14px;line-height:1.8;margin-bottom:18px}.ttxt p{margin-bottom:10px}
+.tsec{font-family:var(--fm);font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.teg{background:var(--paper2);border-left:3px solid var(--accent2);padding:12px 16px;font-size:13px;line-height:1.7;font-style:italic;margin-bottom:18px}
+.trel{display:flex;flex-wrap:wrap;gap:8px}
+.tch{background:var(--paper2);border:1px solid var(--b2);font-family:var(--fm);font-size:11px;padding:5px 12px;cursor:pointer;color:var(--ink);transition:all .15s}.tch:hover{background:var(--ink);color:var(--paper)}
+.tlod{padding:48px;text-align:center}
+.tlt{font-family:var(--fd);font-size:20px;font-style:italic;margin-bottom:14px}
+.dots{display:inline-flex;gap:6px}.dots span{width:7px;height:7px;background:var(--ink);border-radius:50%;animation:bounce .9s infinite ease-in-out}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+.dp{padding:40px 0 80px}
+.dph{text-align:center;padding:40px 0 32px;border-bottom:2px solid var(--b2);margin-bottom:40px}
+.dpt{font-family:var(--fd);font-size:52px;font-weight:900;letter-spacing:-2px;margin-bottom:6px}
+.dps{font-family:var(--fm);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.dsw{max-width:620px;margin:0 auto 28px;position:relative}
+.di{width:100%;background:white;border:2px solid var(--ink);font-family:var(--fd);font-size:19px;font-weight:700;color:var(--ink);padding:15px 150px 15px 22px;outline:none;transition:box-shadow .2s}
+.di::placeholder{color:var(--paper3)}.di:focus{box-shadow:5px 5px 0 var(--ink)}
+.dbtn{position:absolute;right:0;top:0;bottom:0;background:var(--ink);color:var(--paper);border:none;padding:0 22px;font-family:var(--fm);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:background .15s}
+.dbtn:hover{background:var(--accent)}.dbtn:disabled{opacity:.4;cursor:not-allowed}
+.dchips{display:flex;flex-wrap:wrap;gap:8px;max-width:620px;margin:0 auto 40px}
+.dch{background:transparent;border:1px solid var(--b2);font-family:var(--fm);font-size:11px;color:var(--muted);padding:6px 14px;cursor:pointer;transition:all .15s}.dch:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.dres{max-width:680px;margin:0 auto 40px;border:2px solid var(--ink);box-shadow:7px 7px 0 var(--ink);display:none}.dres.show{display:block}
+.drh{background:var(--ink);color:var(--paper);padding:18px 26px;display:flex;align-items:flex-start;justify-content:space-between}
+.drt{font-family:var(--fd);font-size:30px;font-weight:900;letter-spacing:-.5px}
+.drc{font-family:var(--fm);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,235,.45);margin-top:4px}
+.drdl{font-family:var(--fm);font-size:9px;color:rgba(245,242,235,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;text-align:right}
+.drdb{display:flex;gap:3px;justify-content:flex-end}.drdb2{width:16px;height:5px;background:rgba(245,242,235,.15);border-radius:1px}.drdb2.on{background:var(--accent)}
+.drb{padding:24px 26px}
+.drp{font-family:var(--fd);font-size:18px;font-style:italic;font-weight:700;color:var(--accent);border-left:3px solid var(--accent);padding-left:16px;margin-bottom:18px;line-height:1.4}
+.drtx{font-size:14px;line-height:1.8;margin-bottom:18px}.drtx p{margin-bottom:10px}
+.drs{font-family:var(--fm);font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.dreg{background:var(--paper2);border-left:3px solid var(--accent2);padding:12px 16px;font-size:13px;line-height:1.7;font-style:italic;margin-bottom:18px}
+.drrel{display:flex;flex-wrap:wrap;gap:8px}
+.drch{background:var(--paper2);border:1px solid var(--b2);font-family:var(--fm);font-size:11px;padding:5px 12px;cursor:pointer;color:var(--ink);transition:all .15s}.drch:hover{background:var(--ink);color:var(--paper)}
+.drf{border-top:1px solid var(--b2);padding:10px 26px;display:flex;justify-content:space-between;align-items:center;background:var(--paper2)}
+.drfb{background:none;border:none;font-family:var(--fm);font-size:11px;color:var(--accent);cursor:pointer}.drfb:hover{text-decoration:underline}
+.bg{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:3px double var(--b2);padding-top:32px;margin-top:8px}
+.bc{border-right:1px solid var(--b1);padding:0 24px 0 0}.bc:first-child{padding-left:0}.bc:last-child{border-right:none;padding-left:24px;padding-right:0}.bc:nth-child(2),.bc:nth-child(3){padding:0 24px}
+.bct{font-family:var(--fd);font-size:16px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--ink)}
+.bcl{list-style:none;display:flex;flex-direction:column;gap:8px}.bcl li{font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--fm);padding:2px 0;border-bottom:1px dashed transparent;transition:all .15s}.bcl li:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.lr{display:flex;justify-content:center;padding:32px 0 48px;gap:12px;flex-wrap:wrap}
+.lb{background:transparent;border:2px solid var(--ink);font-family:var(--fm);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:12px 28px;cursor:pointer;color:var(--ink);transition:all .15s}.lb:hover{background:var(--ink);color:var(--paper)}
+.lb.p{background:var(--ink);color:var(--paper)}.lb.p:hover{background:var(--accent);border-color:var(--accent)}
+footer{background:var(--ink);color:var(--paper);padding:28px 48px;display:flex;align-items:center;justify-content:space-between}
+footer .fn{font-family:var(--fd);font-size:22px;font-weight:900}
+footer .fl{display:flex;gap:12px;font-family:var(--fm);font-size:11px;color:rgba(245,242,235,.4);flex-wrap:wrap}
+footer .fl span{cursor:pointer;transition:color .15s}
+footer .fc{font-family:var(--fm);font-size:10px;color:rgba(245,242,235,.3)}
+/* Loading states */
+.sec-load{padding:80px 0;text-align:center}
+.sec-load .tlt{font-family:var(--fd);font-size:22px;font-style:italic;margin-bottom:16px}
+.sec-load .sub{font-family:var(--fm);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px}
+.empty{padding:80px 0;text-align:center;font-family:var(--fd);font-size:20px;font-style:italic;color:var(--muted)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.aov.open{animation:fadeIn .2s ease both}
+.tov.open .tp{animation:slideUp .3s cubic-bezier(.16,1,.3,1) both}
+@media(max-width:900px){.mast,.page,.nav{padding-left:20px;padding-right:20px}.fg{grid-template-columns:1fr}.ls{grid-column:1;border-right:none;padding-right:0;border-bottom:1px solid var(--b2);padding-bottom:24px}.ss{padding:24px 0 0}.rg,.sg{grid-template-columns:1fr 1fr}.rg2{grid-template-columns:1fr}.bg{grid-template-columns:1fr 1fr}.ah{font-size:28px}footer{flex-direction:column;gap:16px;text-align:center}}
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="ms"><div id="ld"></div><div>Est. 2026 · Brisbane</div></div>
+  <div class="mc"><div class="sn">Plainly</div><div class="st">Finance news explained simply · Bias-free · AI-powered</div></div>
+  <div class="ms r"><div>Free Edition</div><div style="color:var(--accent2);margin-top:2px">✓ Bias removed</div></div>
+</header>
+<nav class="nav" id="mainnav">
+  <div class="ni active" data-tab="front">Today</div>
+  <div class="ni" data-tab="aus">Australia</div>
+  <div class="ni" data-tab="world">World</div>
+  <div class="ni" data-tab="us">United States</div>
+  <div class="ni" data-tab="biz">Business</div>
+  <div class="ni" data-tab="tech">Tech</div>
+  <div class="ni" data-tab="pol">Politics</div>
+  <div class="ni" data-tab="crypto">Crypto</div>
+  <div class="ni dn" data-tab="dict">Plainly Dictionary</div>
+</nav>
+<div class="ticker">
+  <div class="tt active" id="tk-front"><div class="ti"><span class="tk">ASX 200 <span class="up" id="t-asx">loading...</span></span><span class="sep"> · </span><span class="tk">S&amp;P 500 <span class="up" id="t-sp">loading...</span></span><span class="sep"> · </span><span class="tk">AUD/USD <span class="up" id="t-aud">loading...</span></span><span class="sep"> · </span><span class="tk">BTC <span class="dn2" id="t-btc">loading...</span></span><span class="sep"> · </span><span class="tk">Gold <span class="up" id="t-gold">loading...</span></span><span class="sep"> · </span><span class="tk">RBA Rate <span class="neu">4.10%</span></span><span class="sep"> · </span><span class="tk">Fed Rate <span class="neu">4.25–4.50%</span></span><span class="sep"> · </span><span class="tk">ASX 200 <span class="up" id="t-asx2">loading...</span></span><span class="sep"> · </span><span class="tk">S&amp;P 500 <span class="up" id="t-sp2">loading...</span></span><span class="sep"> · </span><span class="tk">Gold <span class="up" id="t-gold2">loading...</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-aus"><div class="ti"><span class="tk">ASX 200 <span class="up">live</span></span><span class="sep"> · </span><span class="tk">AUD/USD <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">RBA Rate <span class="neu">4.10%</span></span><span class="sep"> · </span><span class="tk">CBA <span class="up">live</span></span><span class="sep"> · </span><span class="tk">BHP <span class="up">live</span></span><span class="sep"> · </span><span class="tk">Woolworths <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">AU 10Y Bond <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-world"><div class="ti"><span class="tk">FTSE 100 <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">DAX <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Nikkei <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">EUR/USD <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Gold <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Brent <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Iron Ore <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-us"><div class="ti"><span class="tk">S&amp;P 500 <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Nasdaq <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Dow <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Nvidia <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Apple <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Tesla <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Fed Rate <span class="neu">4.25–4.50%</span></span><span class="sep"> · </span><span class="tk">10Y UST <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-biz"><div class="ti"><span class="tk">BHP <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Rio Tinto <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">CBA <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Woolworths <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Iron Ore <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Copper <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-tech"><div class="ti"><span class="tk">Nvidia <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Apple <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Microsoft <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Alphabet <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Meta <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Nasdaq <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-pol"><div class="ti"><span class="tk">AUD/USD <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">RBA Rate <span class="neu">4.10%</span></span><span class="sep"> · </span><span class="tk">Fed Rate <span class="neu">4.25–4.50%</span></span><span class="sep"> · </span><span class="tk">AU 10Y Bond <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">AU CPI <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-crypto"><div class="ti"><span class="tk">BTC <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">ETH <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">SOL <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">BNB <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">XRP <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">Total Cap <span class="neu">live</span></span><span class="sep"> · </span><span class="tk">BTC Dom <span class="neu">live</span></span><span class="sep"> · </span></div></div>
+  <div class="tt" id="tk-dict"><div class="ti"><span class="tk neu" style="opacity:.6">Finance explained plainly</span><span class="sep"> · </span><span class="tk neu" style="opacity:.6">No jargon · No bias</span><span class="sep"> · </span><span class="tk neu" style="opacity:.6">Click any orange term for a plain-English definition</span><span class="sep"> · </span><span class="tk neu" style="opacity:.6">plainly.finance</span><span class="sep"> · </span><span class="tk neu" style="opacity:.6">Finance explained plainly</span><span class="sep"> · </span></div></div>
+</div>
 
-const SUPABASE_URL  = process.env.SUPABASE_URL;
-const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const GEMINI_KEY    = process.env.GEMINI_API_KEY;
+<div class="page">
+  <!-- Today tab -->
+  <div class="tab active" id="tab-front">
+    <div id="front-load" class="sec-load"><div class="tlt">Loading today's news...</div><div class="sub">Fetching the latest stories</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="front-content"></div>
+  </div>
 
-if (!SUPABASE_URL || !SUPABASE_KEY || !GEMINI_KEY) {
-  console.error('❌ Missing environment variables. Check your GitHub secrets.');
-  process.exit(1);
+  <!-- Section tabs -->
+  <div class="tab" id="tab-aus">
+    <div class="rh"><div class="rt">Australia</div><div class="rs">ASX · RBA · Housing · Economy</div></div>
+    <div id="aus-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="aus-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <div class="tab" id="tab-world">
+    <div class="rh"><div class="rt">World</div><div class="rs">Trade · Central Banks · Geopolitics · Commodities</div></div>
+    <div id="world-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="world-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <div class="tab" id="tab-us">
+    <div class="rh"><div class="rt">United States</div><div class="rs">Wall Street · Fed · Earnings · US Economy</div></div>
+    <div id="us-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="us-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <div class="tab" id="tab-biz">
+    <div class="rh"><div class="rt">Business</div><div class="rs">Earnings · Mining · Retail · Banking · Energy</div></div>
+    <div id="biz-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="biz-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <div class="tab" id="tab-tech">
+    <div class="rh"><div class="rt">Tech</div><div class="rs">AI · Semiconductors · Big Tech · Regulation</div></div>
+    <div id="tech-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="tech-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <div class="tab" id="tab-pol">
+    <div class="rh"><div class="rt">Politics</div><div class="rs">Policy · Budget · Government · International</div></div>
+    <div id="pol-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="pol-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <div class="tab" id="tab-crypto">
+    <div class="rh"><div class="rt">Crypto</div><div class="rs">Bitcoin · Ethereum · DeFi · Regulation · Web3</div></div>
+    <div id="crypto-load" class="sec-load"><div class="tlt">Loading...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    <div id="crypto-content"></div>
+    <div class="lr"><button class="lb p" onclick="goTab('front')">← Back to Today</button></div>
+  </div>
+
+  <!-- Dictionary tab (unchanged - still uses Claude API live) -->
+  <div class="tab" id="tab-dict">
+    <div class="dp">
+      <div class="dph"><div class="dpt">Plainly</div><div class="dps">Finance terms explained simply — no jargon, no nonsense</div></div>
+      <div class="dsw"><input class="di" id="di" type="text" placeholder="Type any finance term..." autocomplete="off"/><button class="dbtn" id="dbtn" onclick="dictExplain()">Explain</button></div>
+      <div class="dchips">
+        <div class="dch" onclick="dictSearch('leverage')">Leverage</div>
+        <div class="dch" onclick="dictSearch('compound interest')">Compound interest</div>
+        <div class="dch" onclick="dictSearch('short selling')">Short selling</div>
+        <div class="dch" onclick="dictSearch('P/E ratio')">P/E ratio</div>
+        <div class="dch" onclick="dictSearch('inflation')">Inflation</div>
+        <div class="dch" onclick="dictSearch('dividends')">Dividends</div>
+        <div class="dch" onclick="dictSearch('ETF')">ETF</div>
+        <div class="dch" onclick="dictSearch('superannuation')">Superannuation</div>
+        <div class="dch" onclick="dictSearch('bull market')">Bull market</div>
+        <div class="dch" onclick="dictSearch('bear market')">Bear market</div>
+        <div class="dch" onclick="dictSearch('GDP')">GDP</div>
+        <div class="dch" onclick="dictSearch('blockchain')">Blockchain</div>
+      </div>
+      <div id="dlod" style="display:none;text-align:center;padding:40px 0"><div style="font-family:var(--fd);font-size:20px;font-style:italic;margin-bottom:12px">Looking that up...</div><div style="font-family:var(--fm);font-size:11px;color:var(--muted);margin-bottom:16px">Translating finance-speak into plain English</div><div class="dots"><span></span><span></span><span></span></div></div>
+      <div class="dres" id="dres"><div class="drh"><div><div class="drt" id="drt"></div><div class="drc" id="drc"></div></div><div><div class="drdl">Complexity</div><div class="drdb" id="drdb"></div></div></div><div class="drb"><div class="drp" id="drp"></div><div class="drtx" id="drtx"></div><div class="drs">Real-world example</div><div class="dreg" id="dreg"></div><div class="drs">Related terms</div><div class="drrel" id="drrel"></div></div><div class="drf"><span style="font-family:var(--fm);font-size:11px;color:var(--muted)">plainly.finance</span><button class="drfb" onclick="dictSearch(rft())">Random term</button></div></div>
+      <div class="bg">
+        <div class="bc"><div class="bct">Investing</div><ul class="bcl"><li onclick="dictSearch('ETF')">ETF</li><li onclick="dictSearch('index fund')">Index fund</li><li onclick="dictSearch('dividend')">Dividend</li><li onclick="dictSearch('portfolio')">Portfolio</li><li onclick="dictSearch('asset allocation')">Asset allocation</li><li onclick="dictSearch('dollar cost averaging')">Dollar cost averaging</li></ul></div>
+        <div class="bc"><div class="bct">Markets</div><ul class="bcl"><li onclick="dictSearch('bull market')">Bull market</li><li onclick="dictSearch('bear market')">Bear market</li><li onclick="dictSearch('market cap')">Market cap</li><li onclick="dictSearch('liquidity')">Liquidity</li><li onclick="dictSearch('volatility')">Volatility</li><li onclick="dictSearch('short selling')">Short selling</li></ul></div>
+        <div class="bc"><div class="bct">Economics</div><ul class="bcl"><li onclick="dictSearch('inflation')">Inflation</li><li onclick="dictSearch('interest rate')">Interest rate</li><li onclick="dictSearch('GDP')">GDP</li><li onclick="dictSearch('recession')">Recession</li><li onclick="dictSearch('fiscal policy')">Fiscal policy</li><li onclick="dictSearch('monetary policy')">Monetary policy</li></ul></div>
+        <div class="bc"><div class="bct">Crypto</div><ul class="bcl"><li onclick="dictSearch('blockchain')">Blockchain</li><li onclick="dictSearch('Bitcoin')">Bitcoin</li><li onclick="dictSearch('Ethereum')">Ethereum</li><li onclick="dictSearch('DeFi')">DeFi</li><li onclick="dictSearch('NFT')">NFT</li><li onclick="dictSearch('stablecoin')">Stablecoin</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Article overlay -->
+<div class="aov" id="aov">
+  <div class="ar">
+    <button class="ab" onclick="closeArt()">Back to news</button>
+    <div id="ac"></div>
+  </div>
+</div>
+
+<!-- Term panel -->
+<div class="tov" id="tov">
+  <div class="tp" id="tp">
+    <div class="tph">
+      <div><div class="tpt">Plainly - Finance Term</div><div class="tpc" id="tpc"></div></div>
+      <button class="tcl" id="tcl">x</button>
+    </div>
+    <div id="tc">
+      <div class="tlod"><div class="tlt">Looking that up...</div><div class="dots"><span></span><span></span><span></span></div></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="fn">Plainly</div>
+  <div class="fl">
+    <span onclick="goTab('front')">Today</span><span onclick="goTab('aus')">Australia</span><span onclick="goTab('world')">World</span><span onclick="goTab('us')">United States</span><span onclick="goTab('biz')">Business</span><span onclick="goTab('tech')">Tech</span><span onclick="goTab('pol')">Politics</span><span onclick="goTab('crypto')">Crypto</span><span onclick="goTab('dict')">Dictionary</span>
+  </div>
+  <div class="fc">Finance explained plainly · AI-powered · Free forever</div>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG — fill these in after setting up Supabase
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPABASE_URL      = 'https://ifwxfdpqfudtxjfpimcj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_cPIX_3d4la65ipvUrs62Kg_6R5iOChg';  // safe to be public
+const ANTHROPIC_KEY     = 'YOUR_ANTHROPIC_API_KEY_HERE';                       // for Dictionary tab only
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+document.getElementById('ld').textContent = new Date().toLocaleDateString('en-AU', {
+  weekday:'short', day:'numeric', month:'short', year:'numeric'
+});
+
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// All articles cached after first load
+const articleStore = {};   // id → article object
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+const tabs = ['front','aus','world','us','biz','tech','pol','crypto','dict'];
+
+function goTab(t) {
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + t)?.classList.add('active');
+  document.querySelector(`[data-tab="${t}"]`)?.classList.add('active');
+  document.querySelectorAll('.tt').forEach(el => el.classList.remove('active'));
+  document.getElementById('tk-' + t)?.classList.add('active');
+  window.scrollTo(0, 0);
 }
 
-const db     = createClient(SUPABASE_URL, SUPABASE_KEY);
-const parser = new Parser({ timeout: 10000 });
+document.querySelectorAll('.ni').forEach(el => {
+  el.addEventListener('click', () => goTab(el.dataset.tab));
+});
 
-const FEEDS = [
-  { url: 'https://www.abc.net.au/news/feed/51120/rss.xml',                     section: 'aus',    label: 'ABC News Business' },
-  { url: 'https://www.abc.net.au/news/feed/45910/rss.xml',                     section: 'aus',    label: 'ABC News Top Stories' },
-  { url: 'https://www.theguardian.com/australia-news/rss',                     section: 'aus',    label: 'Guardian Australia' },
-  { url: 'https://www.smh.com.au/rss/business.xml',                            section: 'aus',    label: 'SMH Business' },
-  { url: 'https://www.smh.com.au/rss/money.xml',                               section: 'aus',    label: 'SMH Money' },
-  { url: 'https://feeds.reuters.com/reuters/worldNews',                        section: 'world',  label: 'Reuters World' },
-  { url: 'https://feeds.reuters.com/reuters/businessNews',                     section: 'world',  label: 'Reuters Business' },
-  { url: 'https://www.theguardian.com/world/rss',                              section: 'world',  label: 'Guardian World' },
-  { url: 'https://feeds.reuters.com/reuters/companyNews',                      section: 'us',     label: 'Reuters US Companies' },
-  { url: 'https://www.theguardian.com/us-news/rss',                            section: 'us',     label: 'Guardian US' },
-  { url: 'https://feeds.marketwatch.com/marketwatch/topstories/',              section: 'us',     label: 'MarketWatch' },
-  { url: 'https://www.theguardian.com/business/rss',                           section: 'biz',    label: 'Guardian Business' },
-  { url: 'https://www.smh.com.au/rss/business/companies.xml',                  section: 'biz',    label: 'SMH Companies' },
-  { url: 'https://feeds.reuters.com/reuters/technologyNews',                   section: 'tech',   label: 'Reuters Technology' },
-  { url: 'https://www.theguardian.com/technology/rss',                         section: 'tech',   label: 'Guardian Technology' },
-  { url: 'https://feeds.arstechnica.com/arstechnica/index',                    section: 'tech',   label: 'Ars Technica' },
-  { url: 'https://www.abc.net.au/news/feed/2942460/rss.xml',                   section: 'pol',    label: 'ABC News Politics' },
-  { url: 'https://www.theguardian.com/australia-news/australian-politics/rss', section: 'pol',    label: 'Guardian AU Politics' },
-  { url: 'https://www.coindesk.com/arc/outboundfeeds/rss/',                    section: 'crypto', label: 'CoinDesk' },
-  { url: 'https://decrypt.co/feed',                                            section: 'crypto', label: 'Decrypt' },
-  { url: 'https://www.theblock.co/rss.xml',                                    section: 'crypto', label: 'The Block' },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// ARTICLE CARD RENDERING HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-async function fetchFeed(feed) {
+function sourcePills(sources, max = 4) {
+  return (sources || []).slice(0, max).map(s => `<span class="sp">${s.n}</span>`).join('');
+}
+
+function articleCard(a, size = 'normal') {
+  const fontSize = size === 'large' ? '33px' : '17px';
+  const bodySize = size === 'large' ? '14px' : '13px';
+  const readLabel = size === 'large' ? 'Read full story →' : 'Read →';
+  return `
+    <div class="flag">${a.flag} <span class="nb">✓ Bias removed</span></div>
+    <div class="sh" style="font-size:${fontSize}" data-art="${a.id}">${a.headline}</div>
+    <div class="sm">${sourcePills(a.sources, 4)}</div>
+    <div class="sb" style="font-size:${bodySize}"><p>${a.deck}</p></div>
+    <span class="rm" data-art="${a.id}">${readLabel}</span>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TODAY TAB RENDERER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderTodayTab(articles) {
+  const el = document.getElementById('front-content');
+  if (!articles || articles.length === 0) {
+    el.innerHTML = '<div class="empty">No stories yet — the pipeline will fill this in shortly.</div>';
+    document.getElementById('front-load').style.display = 'none';
+    el.style.display = 'block';
+    return;
+  }
+
+  const lead  = articles[0];
+  const side  = articles.slice(1, 4);
+  const grid  = articles.slice(4, 7);
+
+  let html = `
+    <div class="fg">
+      <div class="ls">${articleCard(lead, 'large')}</div>
+      <div class="ss">
+        ${side.map(a => `
+          <div class="si">
+            <div class="flag">${a.section.toUpperCase()}</div>
+            <div class="sh" style="font-size:17px" data-art="${a.id}">${a.headline}</div>
+            <div class="sm">${sourcePills(a.sources, 3)}</div>
+            <div class="sb" style="font-size:13px"><p>${a.deck}</p></div>
+            <span class="rm" data-art="${a.id}">Read →</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  if (grid.length > 0) {
+    html += `
+      <div class="sg">
+        ${grid.map(a => `
+          <div class="sc">
+            <div class="flag">${a.flag}</div>
+            <div class="sh" style="font-size:17px" data-art="${a.id}">${a.headline}</div>
+            <div class="sm">${sourcePills(a.sources, 3)}</div>
+            <div class="sb" style="font-size:13px"><p>${a.deck}</p></div>
+            <span class="rm" data-art="${a.id}">Read →</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="lr">
+      <button class="lb" onclick="goTab('aus')">Australia →</button>
+      <button class="lb" onclick="goTab('world')">World →</button>
+      <button class="lb" onclick="goTab('us')">United States →</button>
+      <button class="lb" onclick="goTab('crypto')">Crypto →</button>
+    </div>
+  `;
+
+  el.innerHTML = html;
+  document.getElementById('front-load').style.display = 'none';
+  el.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION TAB RENDERER (aus, world, us, biz, tech, pol, crypto)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderSectionTab(section, articles) {
+  const loadEl    = document.getElementById(section + '-load');
+  const contentEl = document.getElementById(section + '-content');
+  if (!contentEl) return;
+
+  if (!articles || articles.length === 0) {
+    contentEl.innerHTML = '<div class="empty">No stories yet — check back soon.</div>';
+    if (loadEl) loadEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    return;
+  }
+
+  // First 4 articles in a 4-column grid
+  const first4 = articles.slice(0, 4);
+  // Next 2 in a wider 2-column grid
+  const next2  = articles.slice(4, 6);
+
+  let html = `
+    <div class="rg">
+      ${first4.map(a => `
+        <div class="rc">
+          ${articleCard(a, 'normal')}
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  if (next2.length > 0) {
+    html += `
+      <div class="rg2">
+        ${next2.map(a => `
+          <div class="rc2">
+            ${articleCard(a, 'normal')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  contentEl.innerHTML = html;
+  if (loadEl) loadEl.style.display = 'none';
+  contentEl.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOAD ALL ARTICLES FROM SUPABASE
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadArticles() {
   try {
-    const parsed = await parser.parseURL(feed.url);
-    return (parsed.items || []).slice(0, 8).map(item => ({
-      title:       item.title || '',
-      summary:     item.contentSnippet || item.summary || item.content || '',
-      url:         item.link || item.guid || '',
-      publishedAt: item.pubDate || item.isoDate || new Date().toISOString(),
-      source:      feed.label,
-      section:     feed.section,
-    }));
+    const { data, error } = await supa
+      .from('articles')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .limit(70);
+
+    if (error) throw error;
+
+    // Cache all articles by id
+    (data || []).forEach(a => { articleStore[a.id] = a; });
+
+    // Group by section
+    const bySection = {};
+    for (const a of (data || [])) {
+      if (!bySection[a.section]) bySection[a.section] = [];
+      bySection[a.section].push(a);
+    }
+
+    // Render Today tab — mix of latest across all sections
+    renderTodayTab(data ? data.slice(0, 9) : []);
+
+    // Render each section tab
+    for (const sec of ['aus','world','us','biz','tech','pol','crypto']) {
+      renderSectionTab(sec, bySection[sec] || []);
+    }
+
   } catch (err) {
-    console.warn(`  ⚠ Feed failed [${feed.label}]: ${err.message}`);
-    return [];
+    console.error('Failed to load articles:', err);
+    document.getElementById('front-load').innerHTML =
+      '<div class="empty" style="padding:60px 0">Could not load articles.<br><small style="font-size:13px;opacity:.6">Check your Supabase URL and Anon Key in the config section.</small></div>';
   }
 }
 
-async function scrapeArticle(url) {
-  if (!url) return null;
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':      'Mozilla/5.0 (compatible; Plainly/1.0; +https://plainly.finance)',
-        'Accept':          'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-AU,en;q=0.9',
-      },
-      timeout: 12000,
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const root = parseHTML(html);
-    for (const el of root.querySelectorAll('script, style, nav, header, footer, aside, .ad, .advertisement, .related, .comments, .social, .share, .newsletter, .paywall, [class*="sidebar"], [class*="promo"], [class*="subscribe"]')) {
-      el.remove();
-    }
-    const containers = ['article','[data-testid="article-body"]','.article-body','.article__body','.story-body','.post-content','.entry-content','main','.content'];
-    let text = '';
-    for (const selector of containers) {
-      const el = root.querySelector(selector);
-      if (el) {
-        const paras = el.querySelectorAll('p');
-        text = paras.map(p => p.text.trim()).filter(t => t.length > 40).join('\n\n');
-        if (text.length > 300) break;
-      }
-    }
-    if (text.length < 300) {
-      text = root.querySelectorAll('p').map(p => p.text.trim()).filter(t => t.length > 40).join('\n\n');
-    }
-    return text.length > 200 ? text.substring(0, 4000) : null;
-  } catch {
-    return null;
+// ─────────────────────────────────────────────────────────────────────────────
+// ARTICLE CLICK HANDLER (event delegation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.addEventListener('click', e => {
+  const artEl = e.target.closest('[data-art]');
+  if (artEl) { openArt(artEl.dataset.art); return; }
+
+  const termEl = e.target.closest('.ft');
+  if (termEl) { openTerm(termEl.dataset.term, termEl.dataset.ctx); return; }
+});
+
+function openArt(id) {
+  const a = articleStore[id];
+  if (!a) return;
+  const colors = a.image_colors || ['#2d4a6b', '#1a3347'];
+  const pills   = (a.sources || []).map(s => `<span class="sp">${s.n}</span>`).join('');
+  const srcRows = (a.sources || []).map(s =>
+    `<div class="srcr"><div class="srcn">${s.n}</div><div class="srcd">${s.d}</div></div>`
+  ).join('');
+  const date = new Date(a.published_at).toLocaleDateString('en-AU', {
+    weekday:'long', day:'numeric', month:'long', year:'numeric'
+  });
+
+  document.getElementById('ac').innerHTML = `
+    <div class="af">${a.flag} <span class="nb">Bias removed</span></div>
+    <div class="ah">${a.headline}</div>
+    <div class="ad">${a.deck}</div>
+    <div class="am"><span>${date}</span>${pills}</div>
+    <div class="aimg" style="background:linear-gradient(135deg,${colors[0]},${colors[1]})">
+      <span style="font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,235,.35);position:relative;z-index:1">Image · To be added at launch</span>
+    </div>
+    <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:28px;letter-spacing:.5px">Image: To be added at launch</div>
+    <div class="body">${a.body_html}</div>
+    <div class="srcb"><div class="srcl">Sources and Credits</div>${srcRows}</div>
+    <div class="atags">
+      <div class="atag" onclick="goTab('dict');closeArt()">Open Dictionary</div>
+      <div class="atag" onclick="closeArt()">Back to news</div>
+    </div>
+  `;
+  document.getElementById('aov').classList.add('open');
+  document.getElementById('aov').scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeArt() {
+  document.getElementById('aov').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TERM PANEL (still uses Claude API live — terms are always fresh and contextual)
+// ─────────────────────────────────────────────────────────────────────────────
+const termCache = {};
+
+async function openTerm(term, ctx) {
+  document.getElementById('tov').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('tpc').textContent = ctx ? 'In: ' + ctx : '';
+  document.getElementById('tc').innerHTML = `<div class="tlod"><div class="tlt">Looking up ${term}...</div><div class="dots"><span></span><span></span><span></span></div></div>`;
+  const k = ctx ? term + '|||' + ctx : term;
+  if (!termCache[k]) termCache[k] = await fetchTerm(term, ctx);
+  renderTerm(termCache[k], term, ctx);
+}
+
+function renderTerm(o, fb, ctx) {
+  const cn = (ctx && o.context_note)
+    ? `<div class="tcn"><strong>In this article:</strong> ${o.context_note}</div>` : '';
+  const chips = (o.related || []).map(t => {
+    const b = document.createElement('button');
+    b.className = 'tch'; b.textContent = t;
+    b.onclick = () => openTerm(t, ctx);
+    return b.outerHTML;
+  }).join('');
+  document.getElementById('tc').innerHTML = `
+    <div class="tbody">
+      <div class="tterm">${o.term || fb}</div>
+      <div class="tcat">${o.category || 'Finance'}
+        <div class="tdb">${[1,2,3,4,5].map(i => `<div class="tdb2${i <= (o.complexity||1) ? ' on' : ''}"></div>`).join('')}</div>
+      </div>
+      <div class="tpl">"${o.plain_english || ''}"</div>
+      ${cn}
+      <div class="ttxt">${(o.explanation||'').replace(/\n\n/g,'</p><p>').replace(/^/,'<p>').replace(/$/,'</p>')}</div>
+      <div class="tsec">Real-world example</div>
+      <div class="teg">${o.example || ''}</div>
+      <div class="tsec">Related terms</div>
+      <div class="trel">${chips}</div>
+    </div>
+  `;
+}
+
+function closeTerm() {
+  document.getElementById('tov').classList.remove('open');
+  if (!document.getElementById('aov').classList.contains('open')) {
+    document.body.style.overflow = '';
   }
 }
 
-async function processWithGemini(item, fullText) {
-  const hasFullText   = !!fullText;
-  const sourceContent = hasFullText
-    ? `Full article text:\n${fullText}`
-    : `RSS summary only:\n${item.summary}`;
+document.getElementById('tcl').onclick = closeTerm;
+document.getElementById('tov').onclick = e => { if (e.target === document.getElementById('tov')) closeTerm(); };
+document.getElementById('tp').onclick = e => e.stopPropagation();
 
-  const prompt = `You are the AI editor for Plainly — a finance and news site written in plain English for young Australians (Year 11-12 level).
-
-Source outlet: ${item.source}
-Original headline: ${item.title}
-${sourceContent}
-
-${!hasFullText ? '⚠ Only a summary was available. Write conservatively — only include details clearly stated. Do not invent specifics, quotes, or numbers.' : ''}
-
-Tasks:
-1. Rewrite headline in plain English (max 12 words, accurate)
-2. Write a deck — one sentence on why this matters to a young Australian (max 25 words)
-3. Article body: 4-5 paragraphs, 2 subheadings with <h3> tags, one <blockquote> with attributed quote. Plain English, strictly neutral, only facts from source.
-4. Wrap finance terms: <span class="ft" data-term="TERM" data-ctx="5-7 word summary">TERM</span>
-5. Classify section: aus, world, us, biz, tech, pol, or crypto
-6. Short flag label (e.g. "Monetary Policy", "Bitcoin", "Housing")
-7. List 2-4 real outlets covering this story with 1 sentence each on their angle
-8. Two complementary hex colours for image placeholder
-9. Set "reliable" false if source material too thin
-
-Return ONLY raw JSON, no markdown, no backticks:
-{"headline":"...","deck":"...","section":"aus|world|us|biz|tech|pol|crypto","flag":"...","body_html":"...","sources":[{"n":"Outlet","d":"angle"}],"terms":["term1"],"colors":["#hex1","#hex2"],"reliable":true}`;
-
+async function fetchTerm(term, ctx) {
+  const ci = ctx
+    ? `The user clicked this term while reading: "${ctx}". Include context_note (1-2 sentences) explaining how this term applies in that article.`
+    : 'No article context.';
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 1500 },
-      }),
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content:
+          `Finance explainer for young Australians Year 11-12 level. Explain: "${term}". ${ci}\nReturn ONLY valid JSON with these exact keys: term, category (one of Investing/Markets/Economics/Personal Finance/Banking/Trading/Crypto), complexity (1-5), plain_english (max 20 words), explanation (2-3 paragraphs), example (2-3 sentences Australian context), context_note (if context provided), related (array of 4 terms). No markdown, no backticks, just JSON.`
+        }]
+      })
     });
-    const data  = await res.json();
-    const text  = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    const clean = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(clean);
-  } catch (err) {
-    console.error(`  ✗ Gemini error: ${err.message}`);
-    return null;
+    const d = await r.json();
+    return JSON.parse((d.content?.[0]?.text || '{}').replace(/```json|```/g,'').trim());
+  } catch {
+    return { term, category:'Finance', complexity:1, plain_english:'Could not load this term.', explanation:'Please try again.', example:'', related:[] };
   }
 }
 
-function slugify(text) {
-  return text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim().replace(/\s+/g, '-').substring(0, 70);
+// ─────────────────────────────────────────────────────────────────────────────
+// DICTIONARY TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function dictExplain() {
+  const t = document.getElementById('di').value.trim();
+  if (t) dictSearch(t);
 }
 
-async function alreadyExists(slug) {
-  const { data } = await db.from('articles').select('id').eq('slug', slug).limit(1);
-  return data && data.length > 0;
+async function dictSearch(term) {
+  document.getElementById('di').value = term;
+  document.getElementById('dbtn').disabled = true;
+  document.getElementById('dres').classList.remove('show');
+  document.getElementById('dlod').style.display = 'block';
+  document.getElementById('dlod').scrollIntoView({ behavior:'smooth', block:'center' });
+  const k = 'dict|||' + term;
+  if (!termCache[k]) termCache[k] = await fetchTerm(term, null);
+  const o = termCache[k];
+  document.getElementById('dlod').style.display = 'none';
+  document.getElementById('drt').textContent   = o.term || term;
+  document.getElementById('drc').textContent   = o.category || '';
+  document.getElementById('drp').textContent   = '"' + (o.plain_english || '') + '"';
+  document.getElementById('drtx').innerHTML    = (o.explanation||'').replace(/\n\n/g,'</p><p>').replace(/^/,'<p>').replace(/$/,'</p>');
+  document.getElementById('dreg').textContent  = o.example || '';
+  document.getElementById('drdb').innerHTML    = [1,2,3,4,5].map(i => `<div class="drdb2${i<=(o.complexity||1)?' on':''}"></div>`).join('');
+  document.getElementById('drrel').innerHTML   = (o.related||[]).map(t => {
+    const b = document.createElement('button');
+    b.className='drch'; b.textContent=t; b.onclick=()=>dictSearch(t); return b.outerHTML;
+  }).join('');
+  document.getElementById('dres').classList.add('show');
+  document.getElementById('dres').scrollIntoView({ behavior:'smooth', block:'start' });
+  document.getElementById('dbtn').disabled = false;
 }
 
-async function storeArticle(processed, original) {
-  const slug = slugify(processed.headline || original.title);
-  const { error } = await db.from('articles').insert({
-    slug,
-    section:      processed.section    || original.section || 'world',
-    flag:         processed.flag       || 'News',
-    headline:     processed.headline   || original.title,
-    deck:         processed.deck       || '',
-    body_html:    processed.body_html  || '',
-    sources:      processed.sources    || [{ n: original.source, d: 'Original reporting' }],
-    terms:        processed.terms      || [],
-    image_colors: processed.colors     || ['#2d4a6b', '#1a3347'],
-    original_url: original.url         || null,
-    published_at: original.publishedAt || new Date().toISOString(),
-  });
-  if (error) {
-    if (error.code === '23505') { console.log(`  ↩ Duplicate, skipping`); }
-    else { console.error('  ✗ Supabase error:', error.message); }
-  } else {
-    console.log(`  ✓ Stored: ${processed.headline}`);
-  }
-}
+document.getElementById('di').addEventListener('keydown', e => { if (e.key === 'Enter') dictExplain(); });
 
-async function cleanOldArticles() {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
-  const { error, count } = await db.from('articles').delete({ count: 'exact' }).lt('published_at', cutoff.toISOString());
-  if (error) { console.error('Cleanup error:', error.message); }
-  else { console.log(`🗑️  Cleaned ${count || 0} old articles`); }
-}
+const allT = ['leverage','compound interest','P/E ratio','short selling','ETF','inflation','dividend','bull market','bear market','liquidity','volatility','IPO','market cap','superannuation','GDP','recession','hedge fund','yield curve','blockchain','DeFi'];
+function rft() { return allT[Math.floor(Math.random() * allT.length)]; }
 
-async function main() {
-  console.log('🗞️  Plainly pipeline v2 —', new Date().toISOString());
-  const feedResults = await Promise.all(FEEDS.map(fetchFeed));
-  const allItems    = feedResults.flat();
-  const seen = new Set();
-  const unique = allItems.filter(item => {
-    if (!item.title || seen.has(item.title)) return false;
-    seen.add(item.title); return true;
-  });
-  console.log(`Found ${unique.length} unique articles`);
-  const toProcess = [];
-  for (const item of unique) {
-    if (!(await alreadyExists(slugify(item.title)))) toProcess.push(item);
-  }
-  console.log(`New to process: ${toProcess.length}`);
-  if (toProcess.length === 0) { await cleanOldArticles(); return; }
-  let stored = 0, skipped = 0, errors = 0;
-  for (const item of toProcess) {
-    console.log(`\n→ [${item.section}] ${item.source}: ${item.title.substring(0, 65)}`);
-    let fullText = null;
-    if (item.url) {
-      process.stdout.write('  Scraping...');
-      fullText = await scrapeArticle(item.url);
-      console.log(fullText ? ` ✓ ${fullText.length} chars` : ' ✗ using RSS summary');
-    }
-    const result = await processWithGemini(item, fullText);
-    if (!result) { errors++; continue; }
-    if (result.reliable === false) { console.log('  ↩ Skipped — too thin'); skipped++; continue; }
-    await storeArticle(result, item);
-      // --- SAVE ARTICLE TO FILE ---
-// --- SAVE ARTICLE TO FILE ---
-const safeTitle = (result.headline || item.title)
-                    .replace(/[^a-z0-9 ]/gi, '_')
-                    .toLowerCase()
-                    .substring(0, 70);
+// ─────────────────────────────────────────────────────────────────────────────
+// KEYBOARD SHORTCUTS
+// ─────────────────────────────────────────────────────────────────────────────
 
-const outputDir = path.join(process.cwd(), 'public', 'articles');
-if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('tov').classList.contains('open')) { closeTerm(); return; }
+  if (document.getElementById('aov').classList.contains('open')) closeArt();
+});
 
-const filePath = path.join(outputDir, `${safeTitle}.json`);
-fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
-console.log(`  💾 Saved to output: ${filePath}`);
-stored++;
-await new Promise(r => setTimeout(r, 800));
-  }
-  await cleanOldArticles();
-  console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────────────────────
 
-main().catch(err => { console.error('Pipeline failed:', err); process.exit(1); });
+goTab('front');
+loadArticles();
+</script>
+</body>
+</html>
