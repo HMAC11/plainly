@@ -219,7 +219,7 @@ const safeTitle = (result.headline || item.title)
                     .toLowerCase()
                     .substring(0, 70);
 
-const outputDir = path.join(process.cwd(), 'pipeline', 'output');
+const outputDir = path.join(process.cwd(), 'public', 'articles');
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
 const filePath = path.join(outputDir, `${safeTitle}.json`);
