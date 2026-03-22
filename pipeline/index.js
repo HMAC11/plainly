@@ -1,4 +1,4 @@
-// Plainly — News Pipeline v2
+ // Plainly — News Pipeline v2
 // RSS feeds → scrape full article text → Gemini rewrites → Supabase
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
@@ -75,7 +75,7 @@ async function fetchFeed(feed) {
 // ─── ARTICLE SCRAPING ─────────────────────────────────────────────────────────
 
 async function scrapeArticle(url) {
-  if (!url) return null;
+  if (!url) return { text: null, imageUrl: null };
   try {
     const res = await fetch(url, {
       headers: {
@@ -85,9 +85,15 @@ async function scrapeArticle(url) {
       },
       timeout: 12000,
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { text: null, imageUrl: null };
     const html = await res.text();
     const root = parseHTML(html);
+
+    // Extract og:image before removing elements
+    const ogImage = root.querySelector('meta[property="og:image"]')?.getAttribute('content')
+      || root.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
+      || null;
+
     for (const el of root.querySelectorAll('script, style, nav, header, footer, aside, .ad, .advertisement, .related, .comments, .social, .share, .newsletter, .paywall, [class*="sidebar"], [class*="promo"], [class*="subscribe"]')) {
       el.remove();
     }
@@ -104,9 +110,12 @@ async function scrapeArticle(url) {
     if (text.length < 300) {
       text = root.querySelectorAll('p').map(p => p.text.trim()).filter(t => t.length > 40).join('\n\n');
     }
-    return text.length > 200 ? text.substring(0, 4000) : null;
+    return {
+      text: text.length > 200 ? text.substring(0, 4000) : null,
+      imageUrl: ogImage,
+    };
   } catch {
-    return null;
+    return { text: null, imageUrl: null };
   }
 }
 
@@ -225,7 +234,7 @@ async function alreadyExists(slug) {
   return data && data.length > 0;
 }
 
-async function storeArticle(processed, original) {
+async function storeArticle(processed, original, imageUrl = null) {
   const slug = slugify(processed.headline);
   const { error } = await db.from('articles').insert({
     slug,
@@ -237,6 +246,7 @@ async function storeArticle(processed, original) {
     sources:      processed.sources    || [{ n: original.source, d: 'Original reporting' }],
     terms:        processed.terms      || [],
     image_colors: processed.colors     || ['#2d4a6b', '#1a3347'],
+    image_url:    imageUrl              || null,
     original_url: original.url         || null,
     published_at: original.publishedAt || new Date().toISOString(),
   });
@@ -285,16 +295,19 @@ async function main() {
   for (const item of batch) {
     console.log(`\n→ [${item.section}] ${item.source}: ${item.title.substring(0, 65)}`);
     let fullText = null;
+    let imageUrl = null;
     if (item.url) {
       process.stdout.write('  Scraping...');
-      fullText = await scrapeArticle(item.url);
-      console.log(fullText ? ` ✓ ${fullText.length} chars` : ' ✗ using RSS summary');
+      const scraped = await scrapeArticle(item.url);
+      fullText = scraped.text;
+      imageUrl = scraped.imageUrl;
+      console.log(fullText ? ` ✓ ${fullText.length} chars${imageUrl ? ' + image' : ''}` : ' ✗ using RSS summary');
     }
     const result = await processWithGemini(item, fullText);
     if (!result) { errors++; continue; }
     if (result.reliable === false) { console.log('  ↩ Skipped — too thin'); skipped++; continue; }
 
-    await storeArticle(result, item);
+    await storeArticle(result, item, imageUrl);
 
     // Save article JSON to file
     const safeTitle = (result.headline)
