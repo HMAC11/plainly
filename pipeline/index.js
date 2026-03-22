@@ -219,7 +219,10 @@ const safeTitle = (result.headline || item.title)
                     .toLowerCase()
                     .substring(0, 70);
 
-const filePath = path.join(process.cwd(), 'pipeline', 'output', `${safeTitle}.json`);
+const outputDir = path.join(process.cwd(), 'pipeline', 'output');
+if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+const filePath = path.join(outputDir, `${safeTitle}.json`);
 fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
 console.log(`  💾 Saved to output: ${filePath}`);
 stored++;
