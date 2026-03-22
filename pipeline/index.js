@@ -144,7 +144,7 @@ Example shape (values are placeholders):
 {"headline":"Short plain headline here","deck":"One sentence deck here.","section":"aus","flag":"Housing","body_html":"<p>...</p><h3>...</h3><p>...</p><blockquote>...</blockquote><p>...</p>","sources":[{"n":"ABC News","d":"Covered the angle on..."}],"terms":["inflation"],"colors":["#2d4a6b","#1a3347"],"reliable":true}`;
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -277,10 +277,9 @@ async function main() {
 
   if (toProcess.length === 0) { await cleanOldArticles(); return; }
 
-  // Cap at 12 per run to stay under Gemini free tier (15 req/min)
-  // Pipeline runs 4x/day so this is plenty of throughput
-  const batch = toProcess.slice(0, 12);
-  console.log(`Processing batch of ${batch.length} (capped at 12 for rate limit)`);
+  // Cap at 5 per run — free tier allows 20 req/day across 4 runs
+  const batch = toProcess.slice(0, 5);
+  console.log(`Processing batch of ${batch.length} (capped at 5 for free tier 20 RPD limit)`);
 
   let stored = 0, skipped = 0, errors = 0;
   for (const item of batch) {
@@ -309,7 +308,7 @@ async function main() {
     console.log(`  💾 Saved to output: ${filePath}`);
 
     stored++;
-    await new Promise(r => setTimeout(r, 5000));  // 5s delay = stay under 15 req/min free tier
+    await new Promise(r => setTimeout(r, 13000));  // 13s delay = stay under 5 RPM free tier limit
   }
   await cleanOldArticles();
   console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
