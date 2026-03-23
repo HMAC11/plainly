@@ -1,4 +1,4 @@
- // Plainly — News Pipeline v2
+// Plainly — News Pipeline v2
 // RSS feeds → scrape full article text → Gemini rewrites → Supabase
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
@@ -170,7 +170,7 @@ Example shape (values are placeholders):
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 1500 },
+        generationConfig: { temperature: 0.4, maxOutputTokens: 2500 },
       }),
     });
     if (!res.ok) {
@@ -337,7 +337,7 @@ async function main() {
     console.log(`  💾 Saved to output: ${filePath}`);
 
     stored++;
-    await new Promise(r => setTimeout(r, 13000));  // 13s delay = stay under 5 RPM free tier limit
+    await new Promise(r => setTimeout(r, 20000));  // 20s delay = safely under 5 RPM free tier limit
   }
   await cleanOldArticles();
   console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
