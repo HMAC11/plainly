@@ -729,43 +729,23 @@ async function loadTickers() {
   } catch(e) { console.warn('FX failed:', e.message); }
 
   try {
-    // S&P 500 via stooq (CORS-friendly free API)
-    const sp500 = await fetch('https://stooq.com/q/l/?s=%5espx&f=sd2t2ohlcv&h&e=json')
+    // S&P 500, ASX 200, Gold via Cloudflare Worker proxy (bypasses CORS)
+    const prices = await fetch('https://plainly-prices.sandbox-point.workers.dev')
       .then(r => r.json()).catch(() => null);
-    if (sp500?.symbols?.[0]) {
-      const s = sp500.symbols[0];
-      const price = parseFloat(s.close);
-      const open  = parseFloat(s.open);
-      const pct   = price && open ? ((price - open) / open) * 100 : null;
-      if (price) { setTicker('t-sp', fmtPrice(price, 0), pct); setTicker('t-sp2', fmtPrice(price, 0), pct); }
-    }
-  } catch(e) { console.warn('S&P failed:', e.message); }
 
-  try {
-    // Gold via metals-api free tier (no key needed for basic)
-    const goldData = await fetch('https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=json')
-      .then(r => r.json()).catch(() => null);
-    if (goldData?.symbols?.[0]) {
-      const s = goldData.symbols[0];
-      const price = parseFloat(s.close);
-      const open  = parseFloat(s.open);
-      const pct   = price && open ? ((price - open) / open) * 100 : null;
-      if (price) { setTicker('t-gold', '$' + fmtPrice(price, 0), pct); setTicker('t-gold2', '$' + fmtPrice(price, 0), pct); }
+    if (prices?.sp500?.price) {
+      setTicker('t-sp',  fmtPrice(prices.sp500.price, 0), prices.sp500.pct);
+      setTicker('t-sp2', fmtPrice(prices.sp500.price, 0), prices.sp500.pct);
     }
-  } catch(e) { console.warn('Gold failed:', e.message); }
-
-  try {
-    // ASX 200 via stooq
-    const asx = await fetch('https://stooq.com/q/l/?s=%5eatx&f=sd2t2ohlcv&h&e=json')
-      .then(r => r.json()).catch(() => null);
-    if (asx?.symbols?.[0]) {
-      const s = asx.symbols[0];
-      const price = parseFloat(s.close);
-      const open  = parseFloat(s.open);
-      const pct   = price && open ? ((price - open) / open) * 100 : null;
-      if (price) { setTicker('t-asx', fmtPrice(price, 0), pct); setTicker('t-asx2', fmtPrice(price, 0), pct); }
+    if (prices?.asx200?.price) {
+      setTicker('t-asx',  fmtPrice(prices.asx200.price, 0), prices.asx200.pct);
+      setTicker('t-asx2', fmtPrice(prices.asx200.price, 0), prices.asx200.pct);
     }
-  } catch(e) { console.warn('ASX failed:', e.message); }
+    if (prices?.gold?.price) {
+      setTicker('t-gold',  '$' + fmtPrice(prices.gold.price, 0), prices.gold.pct);
+      setTicker('t-gold2', '$' + fmtPrice(prices.gold.price, 0), prices.gold.pct);
+    }
+  } catch(e) { console.warn('Prices worker failed:', e.message); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
