@@ -612,22 +612,13 @@ document.getElementById('tov').onclick = e => { if (e.target === document.getEle
 document.getElementById('tp').onclick = e => e.stopPropagation();
 
 async function fetchTerm(term, ctx) {
-  const ci = ctx
-    ? `The user clicked this term while reading: "${ctx}". Include context_note (1-2 sentences) explaining how this term applies in that article.`
-    : 'No article context.';
   try {
-    const prompt = `Finance explainer for young Australians Year 11-12 level. Explain: "${term}". ${ci}\nReturn ONLY valid JSON with these exact keys: term, category (one of Investing/Markets/Economics/Personal Finance/Banking/Trading/Crypto), complexity (1-5), plain_english (max 20 words), explanation (2-3 paragraphs), example (2-3 sentences Australian context), context_note (if context provided), related (array of 4 terms). No markdown, no backticks, just JSON.`;
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+    const r = await fetch('https://plainly-dictionary.sandbox-point.workers.dev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 1000 },
-      })
+      body: JSON.stringify({ term, ctx }),
     });
-    const d = await r.json();
-    const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
+    return JSON.parse(await r.text());
   } catch {
     return { term, category:'Finance', complexity:1, plain_english:'Could not load this term.', explanation:'Please try again.', example:'', related:[] };
   }
