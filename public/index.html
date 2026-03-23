@@ -683,11 +683,99 @@ document.addEventListener('keydown', e => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// LIVE TICKER PRICES
+// Uses free public APIs — no key required
+// ─────────────────────────────────────────────────────────────────────────────
+
+function fmtPrice(n, decimals = 2) {
+  return n == null ? '—' : n.toLocaleString('en-AU', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtChange(pct) {
+  if (pct == null) return '';
+  const sign = pct >= 0 ? '+' : '';
+  return ` ${sign}${pct.toFixed(2)}%`;
+}
+
+function setTicker(id, price, pct) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const up = pct >= 0;
+  el.textContent = price + fmtChange(pct);
+  el.className = up ? 'up' : 'dn2';
+}
+
+async function loadTickers() {
+  try {
+    // BTC + ETH + crypto via CoinGecko (free, no key)
+    const cg = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true')
+      .then(r => r.json());
+    const btc = cg.bitcoin;
+    if (btc) setTicker('t-btc', '$' + fmtPrice(btc.usd, 0), btc.usd_24h_change);
+  } catch(e) { console.warn('CoinGecko failed:', e.message); }
+
+  try {
+    // Gold + AUD/USD via open exchange (free)
+    const fx = await fetch('https://open.er-api.com/v6/latest/USD').then(r => r.json());
+    if (fx && fx.rates) {
+      const aud = fx.rates.AUD;
+      // AUD/USD is inverse of USD/AUD
+      const audUsd = aud ? (1 / aud) : null;
+      if (audUsd) {
+        document.getElementById('t-aud').textContent = audUsd.toFixed(4);
+        document.getElementById('t-aud').className = audUsd >= 0.63 ? 'up' : 'dn2';
+      }
+    }
+  } catch(e) { console.warn('FX failed:', e.message); }
+
+  try {
+    // S&P 500, ASX 200, Gold via Yahoo Finance proxy (free)
+    const quotes = ['%5EGSPC', '%5EAXJO', 'GC%3DF'];
+    const results = await Promise.all(quotes.map(sym =>
+      fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`)
+        .then(r => r.json())
+        .catch(() => null)
+    ));
+
+    // S&P 500
+    const sp = results[0]?.chart?.result?.[0];
+    if (sp) {
+      const price = sp.meta?.regularMarketPrice;
+      const prev  = sp.meta?.chartPreviousClose;
+      const pct   = price && prev ? ((price - prev) / prev) * 100 : null;
+      const fmt   = price ? fmtPrice(price, 0) : null;
+      if (fmt) { setTicker('t-sp', fmt, pct); setTicker('t-sp2', fmt, pct); }
+    }
+
+    // ASX 200
+    const asx = results[1]?.chart?.result?.[0];
+    if (asx) {
+      const price = asx.meta?.regularMarketPrice;
+      const prev  = asx.meta?.chartPreviousClose;
+      const pct   = price && prev ? ((price - prev) / prev) * 100 : null;
+      const fmt   = price ? fmtPrice(price, 0) : null;
+      if (fmt) { setTicker('t-asx', fmt, pct); setTicker('t-asx2', fmt, pct); }
+    }
+
+    // Gold
+    const gold = results[2]?.chart?.result?.[0];
+    if (gold) {
+      const price = gold.meta?.regularMarketPrice;
+      const prev  = gold.meta?.chartPreviousClose;
+      const pct   = price && prev ? ((price - prev) / prev) * 100 : null;
+      const fmt   = price ? '$' + fmtPrice(price, 0) : null;
+      if (fmt) { setTicker('t-gold', fmt, pct); setTicker('t-gold2', fmt, pct); }
+    }
+  } catch(e) { console.warn('Yahoo Finance failed:', e.message); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BOOT
 // ─────────────────────────────────────────────────────────────────────────────
 
 goTab('front');
 loadArticles();
+loadTickers();
 </script>
 </body>
 </html>
