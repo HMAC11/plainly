@@ -714,19 +714,7 @@ async function loadTickers() {
     if (btc) setTicker('t-btc', '$' + fmtPrice(btc.usd, 0), btc.usd_24h_change);
   } catch(e) { console.warn('CoinGecko failed:', e.message); }
 
-  try {
-    // Gold + AUD/USD via open exchange (free)
-    const fx = await fetch('https://open.er-api.com/v6/latest/USD').then(r => r.json());
-    if (fx && fx.rates) {
-      const aud = fx.rates.AUD;
-      // AUD/USD is inverse of USD/AUD
-      const audUsd = aud ? (1 / aud) : null;
-      if (audUsd) {
-        document.getElementById('t-aud').textContent = audUsd.toFixed(4);
-        document.getElementById('t-aud').className = audUsd >= 0.63 ? 'up' : 'dn2';
-      }
-    }
-  } catch(e) { console.warn('FX failed:', e.message); }
+  // AUD/USD now comes from the worker below
 
   try {
     // S&P 500, ASX 200, Gold via Cloudflare Worker proxy (bypasses CORS)
@@ -744,6 +732,11 @@ async function loadTickers() {
     if (prices?.gold?.price) {
       setTicker('t-gold',  '$' + fmtPrice(prices.gold.price, 0), prices.gold.pct);
       setTicker('t-gold2', '$' + fmtPrice(prices.gold.price, 0), prices.gold.pct);
+    }
+    if (prices?.audusd?.price) {
+      const aud = prices.audusd.price;
+      document.getElementById('t-aud').textContent = aud.toFixed(4);
+      document.getElementById('t-aud').className = aud >= 0.63 ? 'up' : 'dn2';
     }
   } catch(e) { console.warn('Prices worker failed:', e.message); }
 }
