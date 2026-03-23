@@ -729,44 +729,43 @@ async function loadTickers() {
   } catch(e) { console.warn('FX failed:', e.message); }
 
   try {
-    // S&P 500, ASX 200, Gold via Yahoo Finance proxy (free)
-    const quotes = ['%5EGSPC', '%5EAXJO', 'GC%3DF'];
-    const results = await Promise.all(quotes.map(sym =>
-      fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`)
-        .then(r => r.json())
-        .catch(() => null)
-    ));
-
-    // S&P 500
-    const sp = results[0]?.chart?.result?.[0];
-    if (sp) {
-      const price = sp.meta?.regularMarketPrice;
-      const prev  = sp.meta?.chartPreviousClose;
-      const pct   = price && prev ? ((price - prev) / prev) * 100 : null;
-      const fmt   = price ? fmtPrice(price, 0) : null;
-      if (fmt) { setTicker('t-sp', fmt, pct); setTicker('t-sp2', fmt, pct); }
+    // S&P 500 via stooq (CORS-friendly free API)
+    const sp500 = await fetch('https://stooq.com/q/l/?s=%5espx&f=sd2t2ohlcv&h&e=json')
+      .then(r => r.json()).catch(() => null);
+    if (sp500?.symbols?.[0]) {
+      const s = sp500.symbols[0];
+      const price = parseFloat(s.close);
+      const open  = parseFloat(s.open);
+      const pct   = price && open ? ((price - open) / open) * 100 : null;
+      if (price) { setTicker('t-sp', fmtPrice(price, 0), pct); setTicker('t-sp2', fmtPrice(price, 0), pct); }
     }
+  } catch(e) { console.warn('S&P failed:', e.message); }
 
-    // ASX 200
-    const asx = results[1]?.chart?.result?.[0];
-    if (asx) {
-      const price = asx.meta?.regularMarketPrice;
-      const prev  = asx.meta?.chartPreviousClose;
-      const pct   = price && prev ? ((price - prev) / prev) * 100 : null;
-      const fmt   = price ? fmtPrice(price, 0) : null;
-      if (fmt) { setTicker('t-asx', fmt, pct); setTicker('t-asx2', fmt, pct); }
+  try {
+    // Gold via metals-api free tier (no key needed for basic)
+    const goldData = await fetch('https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=json')
+      .then(r => r.json()).catch(() => null);
+    if (goldData?.symbols?.[0]) {
+      const s = goldData.symbols[0];
+      const price = parseFloat(s.close);
+      const open  = parseFloat(s.open);
+      const pct   = price && open ? ((price - open) / open) * 100 : null;
+      if (price) { setTicker('t-gold', '$' + fmtPrice(price, 0), pct); setTicker('t-gold2', '$' + fmtPrice(price, 0), pct); }
     }
+  } catch(e) { console.warn('Gold failed:', e.message); }
 
-    // Gold
-    const gold = results[2]?.chart?.result?.[0];
-    if (gold) {
-      const price = gold.meta?.regularMarketPrice;
-      const prev  = gold.meta?.chartPreviousClose;
-      const pct   = price && prev ? ((price - prev) / prev) * 100 : null;
-      const fmt   = price ? '$' + fmtPrice(price, 0) : null;
-      if (fmt) { setTicker('t-gold', fmt, pct); setTicker('t-gold2', fmt, pct); }
+  try {
+    // ASX 200 via stooq
+    const asx = await fetch('https://stooq.com/q/l/?s=%5eatx&f=sd2t2ohlcv&h&e=json')
+      .then(r => r.json()).catch(() => null);
+    if (asx?.symbols?.[0]) {
+      const s = asx.symbols[0];
+      const price = parseFloat(s.close);
+      const open  = parseFloat(s.open);
+      const pct   = price && open ? ((price - open) / open) * 100 : null;
+      if (price) { setTicker('t-asx', fmtPrice(price, 0), pct); setTicker('t-asx2', fmtPrice(price, 0), pct); }
     }
-  } catch(e) { console.warn('Yahoo Finance failed:', e.message); }
+  } catch(e) { console.warn('ASX failed:', e.message); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
