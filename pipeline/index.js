@@ -170,7 +170,7 @@ Example shape (values are placeholders):
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 2500 },
+        generationConfig: { temperature: 0.4, maxOutputTokens: 3000 },
       }),
     });
     if (!res.ok) {
@@ -308,6 +308,8 @@ async function main() {
   console.log(`Processing batch of ${batch.length} (capped at 5 for free tier 20 RPD limit)`);
 
   let stored = 0, skipped = 0, errors = 0;
+  console.log('  Waiting 30s before starting to avoid rate limits...');
+  await new Promise(r => setTimeout(r, 30000));
   for (const item of batch) {
     console.log(`\n→ [${item.section}] ${item.source}: ${item.title.substring(0, 65)}`);
     let fullText = null;
@@ -337,7 +339,7 @@ async function main() {
     console.log(`  💾 Saved to output: ${filePath}`);
 
     stored++;
-    await new Promise(r => setTimeout(r, 20000));  // 20s delay = safely under 5 RPM free tier limit
+    await new Promise(r => setTimeout(r, 25000));  // 25s delay = safely under 5 RPM free tier limit
   }
   await cleanOldArticles();
   console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
