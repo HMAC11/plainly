@@ -348,7 +348,14 @@ function articleCard(a, size = 'normal') {
   const fontSize = size === 'large' ? '33px' : '17px';
   const bodySize = size === 'large' ? '14px' : '13px';
   const readLabel = size === 'large' ? 'Read full story →' : 'Read →';
+  const colors = a.image_colors || ['#2d4a6b', '#1a3347'];
+  const imgHtml = a.image_url
+    ? `<div style="width:100%;height:${size==='large'?'220':'140'}px;margin-bottom:14px;overflow:hidden;border-radius:2px;position:relative;">
+        <img src="${a.image_url}" alt="${a.headline}" style="width:100%;height:100%;object-fit:cover;">
+       </div>`
+    : '';
   return `
+    ${imgHtml}
     <div class="flag">${a.flag} <span class="nb">✓ Bias removed</span></div>
     <div class="sh" style="font-size:${fontSize}" data-art="${a.id}">${a.headline}</div>
     <div class="sm">${sourcePills(a.sources, 4)}</div>
