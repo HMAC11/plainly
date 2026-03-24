@@ -58,6 +58,9 @@ const IRRELEVANT_KEYWORDS = [
   'Oscars', 'Grammy', 'Chappell Roan', 'Taylor Swift', 'Matildas',
   'recipe', 'horoscope', 'crossword', 'puzzle',
   'Rapid Recap', 'Match Report', 'Live Blog', 'live updates',
+  'murder', 'rape', 'charged with', 'tribunal', 'sentenced', 'court',
+  'cyclone', 'flood', 'bushfire', 'weather', 'storm',
+  'Suns', 'Storm', 'Raiders', 'Roosters', 'Warriors', 'Broncos',
 ];
 
 function isRelevant(title) {
@@ -170,7 +173,7 @@ Example shape (values are placeholders):
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 3000 },
+        generationConfig: { temperature: 0.4, maxOutputTokens: 4000 },
       }),
     });
     if (!res.ok) {
