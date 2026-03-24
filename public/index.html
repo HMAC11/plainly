@@ -550,6 +550,7 @@ function openArt(id) {
         : `<span style="font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,235,.35);position:relative;z-index:1">${a.flag}</span>`
       }
     </div>
+    ${a.image_url && a.sources?.[0] ? `<div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:28px;letter-spacing:.5px">Image: ${a.sources[0].n}</div>` : '<div style="margin-bottom:28px"></div>'}
     <div class="body">${a.body_html}</div>
     <div class="srcb"><div class="srcl">Sources and Credits</div>${srcRows}</div>
     <div class="atags">
