@@ -23,26 +23,23 @@ const parser = new Parser({ timeout: 10000 });
 // Reuters RSS has been blocked since 2023. Replaced with AP News, BBC, FT.
 // SMH /rss/money.xml and /rss/business/companies.xml return 404 — fixed URLs.
 const FEEDS = [
-  // Australia — business/economics/policy focused only
-  { url: 'https://www.abc.net.au/news/feed/51120/rss.xml',                     section: 'aus',    label: 'ABC News Business' },
-  { url: 'https://www.theguardian.com/australia-news/rss',                     section: 'aus',    label: 'Guardian Australia' },
+  // Australia — economics, housing, RBA, ASX, major policy only
   { url: 'https://www.smh.com.au/rss/business.xml',                            section: 'aus',    label: 'SMH Business' },
-  { url: 'https://www.smh.com.au/rss/money.xml',                               section: 'aus',    label: 'SMH Money' },
-  // World
+  { url: 'https://www.theguardian.com/australia-news/rss',                     section: 'aus',    label: 'Guardian Australia' },
+  { url: 'https://www.abc.net.au/news/feed/2942460/rss.xml',                   section: 'pol',    label: 'ABC News Politics' },
+  // World — major geopolitics, wars, trade, central banks
   { url: 'https://feeds.bbci.co.uk/news/world/rss.xml',                        section: 'world',  label: 'BBC World' },
   { url: 'https://www.theguardian.com/world/rss',                              section: 'world',  label: 'Guardian World' },
-  // US
-  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml',                     section: 'us',     label: 'BBC Business' },
-  { url: 'https://www.theguardian.com/us-news/rss',                            section: 'us',     label: 'Guardian US' },
+  // US — Wall Street, Fed, trade policy, US economy
   { url: 'https://feeds.marketwatch.com/marketwatch/topstories/',              section: 'us',     label: 'MarketWatch' },
-  // Business
+  { url: 'https://www.theguardian.com/us-news/rss',                            section: 'us',     label: 'Guardian US' },
+  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml',                     section: 'us',     label: 'BBC Business' },
+  // Business — earnings, commodities, banking, energy, mining
   { url: 'https://www.theguardian.com/business/rss',                           section: 'biz',    label: 'Guardian Business' },
-  // Tech
+  // Tech — AI, semiconductors, big tech regulation, major launches
   { url: 'https://feeds.arstechnica.com/arstechnica/index',                    section: 'tech',   label: 'Ars Technica' },
   { url: 'https://www.theguardian.com/technology/rss',                         section: 'tech',   label: 'Guardian Technology' },
-  { url: 'https://feeds.bbci.co.uk/news/technology/rss.xml',                   section: 'tech',   label: 'BBC Technology' },
-  // Politics
-  { url: 'https://www.abc.net.au/news/feed/2942460/rss.xml',                   section: 'pol',    label: 'ABC News Politics' },
+  // Politics — AU federal, international relations, defence
   { url: 'https://www.theguardian.com/australia-news/australian-politics/rss', section: 'pol',    label: 'Guardian AU Politics' },
   // Crypto
   { url: 'https://www.coindesk.com/arc/outboundfeeds/rss/',                    section: 'crypto', label: 'CoinDesk' },
@@ -53,29 +50,54 @@ const FEEDS = [
 // Topics that are NOT relevant to Plainly — filtered before sending to Gemini
 // Block list — anything matching these is dropped immediately
 const BLOCK_KEYWORDS = [
-  // Sport
+  // Sport — all of it
   'AFL', 'NRL', 'cricket', 'tennis', 'golf', 'rugby', 'NBA', 'NFL', 'EPL',
   'Premier League', 'World Cup', 'Olympics', 'Matildas', 'Socceroos',
   'Rapid Recap', 'Match Report', 'fixture', 'grand final', 'season preview',
   'Suns', 'Storm', 'Raiders', 'Roosters', 'Warriors', 'Broncos', 'Swans',
-  'Ashes', 'BBL', 'A-League',
-  // Crime & courts
+  'Ashes', 'BBL', 'A-League', 'league', 'football club', 'soccer',
+  // Crime & courts — not finance crime
   'murder', 'stabbing', 'rape', 'assault', 'charged with', 'tribunal',
-  'sentenced', 'inquest', 'missing person', 'manhunt',
+  'sentenced', 'inquest', 'missing person', 'manhunt', 'shooting',
+  'robbery', 'theft', 'stolen', 'burglar', 'drug bust',
   // Entertainment & lifestyle
   'celebrity', 'reality TV', 'music', 'movie', 'film', 'Oscars', 'Grammy',
   'Chappell Roan', 'Taylor Swift', 'recipe', 'horoscope', 'crossword',
-  'relationship', 'dating', 'fashion',
-  // Weather & disaster (unless economic impact)
-  'cyclone', 'bushfire', 'flood warning', 'weather forecast',
-  // Misc irrelevant
-  'Rapid Recap', 'Live Blog', 'live updates', 'quiz',
+  'relationship', 'dating', 'fashion', 'diet', 'fitness',
+  // Weather & natural disasters
+  'cyclone', 'bushfire', 'flood warning', 'weather forecast', 'heatwave',
+  'earthquake', 'tsunami', 'wildfire',
+  // Too local/soft
+  'urban design', 'council', 'local government', 'traffic', 'parking',
+  'school', 'hospital', 'aged care', 'disability', 'suburb',
+  // Misc
+  'Live Blog', 'live updates', 'quiz', 'crossword', 'horoscope',
+  'obituary', 'letters to the editor',
+];
+
+// Stories must relate to at least one of these major themes
+const REQUIRE_RELEVANCE = [
+  'economy', 'economic', 'market', 'stock', 'share', 'trade', 'tariff',
+  'inflation', 'interest rate', 'recession', 'GDP', 'budget', 'tax',
+  'bank', 'banking', 'finance', 'investment', 'fund', 'dollar', 'currency',
+  'oil', 'gas', 'energy', 'commodity', 'gold', 'iron ore', 'coal',
+  'war', 'conflict', 'military', 'missile', 'Iran', 'Russia', 'Ukraine',
+  'China', 'US', 'Trump', 'sanctions', 'NATO', 'geopolit',
+  'crypto', 'bitcoin', 'ethereum', 'blockchain',
+  'AI', 'artificial intelligence', 'tech giant', 'regulation',
+  'earnings', 'profit', 'revenue', 'merger', 'acquisition', 'IPO',
+  'RBA', 'Fed', 'central bank', 'rate cut', 'rate hike',
+  'housing', 'property', 'mortgage', 'rent',
+  'election', 'policy', 'minister', 'parliament', 'legislation',
+  'ASX', 'S&P', 'Nasdaq', 'Wall Street', 'commodity',
 ];
 
 function isRelevant(title) {
   const t = title.toLowerCase();
-  // Hard block
+  // Hard block first
   if (BLOCK_KEYWORDS.some(kw => t.includes(kw.toLowerCase()))) return false;
+  // Must match at least one relevant theme
+  if (!REQUIRE_RELEVANCE.some(kw => t.includes(kw.toLowerCase()))) return false;
   return true;
 }
 
@@ -116,9 +138,12 @@ async function scrapeArticle(url) {
     const root = parseHTML(html);
 
     // Extract og:image before removing elements
-    const ogImage = root.querySelector('meta[property="og:image"]')?.getAttribute('content')
+    const rawImage = root.querySelector('meta[property="og:image"]')?.getAttribute('content')
       || root.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
       || null;
+    // Filter out outlet logos and generic placeholder images
+    const logoPatterns = ['logo', 'placeholder', 'default', 'fallback', 'icon', 'avatar', 'brand', 'abc-logo', 'bbc-logo'];
+    const ogImage = rawImage && !logoPatterns.some(p => rawImage.toLowerCase().includes(p)) ? rawImage : null;
 
     for (const el of root.querySelectorAll('script, style, nav, header, footer, aside, .ad, .advertisement, .related, .comments, .social, .share, .newsletter, .paywall, [class*="sidebar"], [class*="promo"], [class*="subscribe"]')) {
       el.remove();
