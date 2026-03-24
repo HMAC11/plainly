@@ -51,21 +51,32 @@ const FEEDS = [
 ];
 
 // Topics that are NOT relevant to Plainly — filtered before sending to Gemini
-const IRRELEVANT_KEYWORDS = [
-  'AFL', 'NRL', 'cricket', 'tennis', 'golf', 'football', 'soccer', 'rugby',
-  'NBA', 'NFL', 'EPL', 'Premier League', 'World Cup', 'Olympics',
-  'celebrity', 'reality TV', 'entertainment', 'music', 'movie', 'film',
-  'Oscars', 'Grammy', 'Chappell Roan', 'Taylor Swift', 'Matildas',
-  'recipe', 'horoscope', 'crossword', 'puzzle',
-  'Rapid Recap', 'Match Report', 'Live Blog', 'live updates',
-  'murder', 'rape', 'charged with', 'tribunal', 'sentenced', 'court',
-  'cyclone', 'flood', 'bushfire', 'weather', 'storm',
-  'Suns', 'Storm', 'Raiders', 'Roosters', 'Warriors', 'Broncos',
+// Block list — anything matching these is dropped immediately
+const BLOCK_KEYWORDS = [
+  // Sport
+  'AFL', 'NRL', 'cricket', 'tennis', 'golf', 'rugby', 'NBA', 'NFL', 'EPL',
+  'Premier League', 'World Cup', 'Olympics', 'Matildas', 'Socceroos',
+  'Rapid Recap', 'Match Report', 'fixture', 'grand final', 'season preview',
+  'Suns', 'Storm', 'Raiders', 'Roosters', 'Warriors', 'Broncos', 'Swans',
+  'Ashes', 'BBL', 'A-League',
+  // Crime & courts
+  'murder', 'stabbing', 'rape', 'assault', 'charged with', 'tribunal',
+  'sentenced', 'inquest', 'missing person', 'manhunt',
+  // Entertainment & lifestyle
+  'celebrity', 'reality TV', 'music', 'movie', 'film', 'Oscars', 'Grammy',
+  'Chappell Roan', 'Taylor Swift', 'recipe', 'horoscope', 'crossword',
+  'relationship', 'dating', 'fashion',
+  // Weather & disaster (unless economic impact)
+  'cyclone', 'bushfire', 'flood warning', 'weather forecast',
+  // Misc irrelevant
+  'Rapid Recap', 'Live Blog', 'live updates', 'quiz',
 ];
 
 function isRelevant(title) {
   const t = title.toLowerCase();
-  return !IRRELEVANT_KEYWORDS.some(kw => t.includes(kw.toLowerCase()));
+  // Hard block
+  if (BLOCK_KEYWORDS.some(kw => t.includes(kw.toLowerCase()))) return false;
+  return true;
 }
 
 // ─── FEED FETCHING ────────────────────────────────────────────────────────────
