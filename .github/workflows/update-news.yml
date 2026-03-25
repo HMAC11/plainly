@@ -6,16 +6,16 @@ on:
 jobs:
   update-news:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # opt into Node 24 ahead of June 2026 deadline
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: pipeline/package.json
       - name: Install dependencies
