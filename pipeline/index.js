@@ -178,30 +178,16 @@ async function processWithGemini(item, fullText) {
     ? `Full article text:\n${fullText}`
     : `RSS summary only:\n${item.summary}`;
 
-  const prompt = `You are the AI editor for Plainly — a finance and news site written in plain English for young Australians (Year 11-12 level).
+  const prompt = `You are editor of Plainly — finance and geopolitics news in plain English for Australians aged 16-25. Only cover: economics, markets, business, geopolitics, war, trade, crypto, major policy. Reject anything else.
 
-Source outlet: ${item.source}
-Original headline: ${item.title}
+Source: ${item.source} | Headline: ${item.title}
 ${sourceContent}
+${!hasFullText ? 'RSS summary only — be conservative, no invented details.' : ''}
 
-${!hasFullText ? '⚠ Only a summary was available. Write conservatively — only include details clearly stated. Do not invent specifics, quotes, or numbers.' : ''}
+Return ONLY raw JSON, no markdown, no backticks, using exactly these keys:
+{"headline":"max 10 words","deck":"1 sentence why it matters to young Australians, max 20 words","section":"aus|world|us|biz|tech|pol|crypto","flag":"2-3 word topic","body_html":"3 short paragraphs + 1 h3 subheading + 1 blockquote, wrap finance terms in <span class=\"ft\" data-term=\"TERM\">TERM</span>","sources":[{"n":"Outlet","d":"angle in 8 words"}],"terms":["term1"],"colors":["#2d4a6b","#1a3347"],"reliable":true}
 
-Tasks:
-1. Rewrite headline in plain English (max 12 words, accurate)
-2. Write a deck — one sentence on why this matters to a young Australian (max 25 words)
-3. Article body: 4-5 paragraphs, 2 subheadings with <h3> tags, one <blockquote> with attributed quote. Plain English, strictly neutral, only facts from source.
-4. Wrap finance terms: <span class="ft" data-term="TERM" data-ctx="5-7 word summary">TERM</span>
-5. Classify section: aus, world, us, biz, tech, pol, or crypto
-6. Short flag label (e.g. "Monetary Policy", "Bitcoin", "Housing")
-7. List 2-4 real outlets covering this story with 1 sentence each on their angle
-8. Two complementary hex colours for image placeholder
-9. Set "reliable" false if source material too thin, OR if the story is not relevant to finance, economics, business, technology, or politics (e.g. celebrity gossip, sport, entertainment). This is a finance and news site — reject anything that doesn't belong.
-
-CRITICAL: Return ONLY a raw JSON object. No markdown. No backticks. No explanation. No wrapper object.
-The JSON must use exactly these keys: headline, deck, section, flag, body_html, sources, terms, colors, reliable
-
-Example shape (values are placeholders):
-{"headline":"Short plain headline here","deck":"One sentence deck here.","section":"aus","flag":"Housing","body_html":"<p>...</p><h3>...</h3><p>...</p><blockquote>...</blockquote><p>...</p>","sources":[{"n":"ABC News","d":"Covered the angle on..."}],"terms":["inflation"],"colors":["#2d4a6b","#1a3347"],"reliable":true}`;
+Set reliable:false if story is sport, crime, entertainment, weather, or too thin.`;
 
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
@@ -378,7 +364,7 @@ async function main() {
     console.log(`  💾 Saved to output: ${filePath}`);
 
     stored++;
-    await new Promise(r => setTimeout(r, 25000));  // 25s delay = safely under 5 RPM free tier limit
+    await new Promise(r => setTimeout(r, 30000));  // 30s delay = safely under 5 RPM free tier limit
   }
   await cleanOldArticles();
   console.log(`\n✅ Done. Stored: ${stored} | Skipped: ${skipped} | Errors: ${errors}`);
