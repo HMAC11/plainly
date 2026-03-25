@@ -51,29 +51,23 @@ const FEEDS = [
 // Topics that are NOT relevant to Plainly — filtered before sending to Gemini
 // Block list — anything matching these is dropped immediately
 const BLOCK_KEYWORDS = [
-  // Sport — all of it
-  'AFL', 'NRL', 'cricket', 'tennis', 'golf', 'rugby', 'NBA', 'NFL', 'EPL',
-  'Premier League', 'World Cup', 'Olympics', 'Matildas', 'Socceroos',
-  'Rapid Recap', 'Match Report', 'fixture', 'grand final', 'season preview',
-  'Suns', 'Storm', 'Raiders', 'Roosters', 'Warriors', 'Broncos', 'Swans',
-  'Ashes', 'BBL', 'A-League', 'league', 'football club', 'soccer',
-  // Crime & courts — not finance crime
-  'murder', 'stabbing', 'rape', 'assault', 'charged with', 'tribunal',
-  'sentenced', 'inquest', 'missing person', 'manhunt', 'shooting',
-  'robbery', 'theft', 'stolen', 'burglar', 'drug bust',
+  // Sport — very specific to avoid catching financial stories
+  ' AFL ', ' NRL ', ' cricket ', ' tennis ', ' golf ', ' rugby ',
+  'Premier League', 'World Cup', 'Olympic Games', 'Matildas', 'Socceroos',
+  'Rapid Recap', 'Match Report', 'grand final', 'season preview',
+  ' Ashes ', ' BBL ', 'A-League', 'football club',
+  // Crime — very specific phrases only
+  'murder', 'stabbing', 'rape', 'sexual assault', 'manhunt',
+  'missing person', 'drug bust', 'burglar',
   // Entertainment & lifestyle
-  'celebrity', 'reality TV', 'music', 'movie', 'film', 'Oscars', 'Grammy',
-  'Chappell Roan', 'Taylor Swift', 'recipe', 'horoscope', 'crossword',
-  'relationship', 'dating', 'fashion', 'diet', 'fitness',
-  // Weather & natural disasters
-  'cyclone', 'bushfire', 'flood warning', 'weather forecast', 'heatwave',
-  'earthquake', 'tsunami', 'wildfire',
-  // Too local/soft
-  'urban design', 'council', 'local government', 'traffic', 'parking',
-  'school', 'hospital', 'aged care', 'disability', 'suburb',
+  'Chappell Roan', 'Taylor Swift', 'Oscars', 'Grammy',
+  'reality TV', 'horoscope', 'crossword', 'recipe',
+  // Weather — specific phrases only
+  'Tropical Cyclone', 'bushfire warning', 'flood warning', 'weather forecast',
+  // Too local
+  'urban design', 'local government',
   // Misc
-  'Live Blog', 'live updates', 'quiz', 'crossword', 'horoscope',
-  'obituary', 'letters to the editor',
+  'letters to the editor', 'obituary',
 ];
 
 function isRelevant(title) {
