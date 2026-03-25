@@ -351,8 +351,8 @@ function articleCard(a, size = 'normal') {
   const readLabel = size === 'large' ? 'Read full story →' : 'Read →';
   const colors = a.image_colors || ['#2d4a6b', '#1a3347'];
   const imgHtml = a.image_url
-    ? `<div style="width:100%;height:${size==='large'?'220':'140'}px;margin-bottom:14px;overflow:hidden;border-radius:2px;position:relative;">
-        <img src="${a.image_url}" alt="${a.headline}" style="width:100%;height:100%;object-fit:cover;">
+    ? `<div style="width:100%;height:${size==='large'?'200':'160'}px;margin-bottom:14px;overflow:hidden;border-radius:2px;position:relative;">
+        <img src="${a.image_url}" alt="${a.headline}" style="width:100%;height:100%;object-fit:cover;object-position:center top;">
        </div>`
     : '';
   return `
@@ -380,7 +380,7 @@ function renderTodayTab(articles) {
 
   const lead  = articles[0];
   const side  = articles.slice(1, 4);
-  const grid  = articles.slice(4, 7);
+  const grid  = articles.slice(4, 10);
 
   let html = `
     <div class="fg">
@@ -448,7 +448,7 @@ function renderSectionTab(section, articles) {
   // First 4 articles in a 4-column grid
   const first4 = articles.slice(0, 4);
   // Next 2 in a wider 2-column grid
-  const next2  = articles.slice(4, 6);
+  const next2  = articles.slice(4, 8);
 
   let html = `
     <div class="rg">
@@ -487,7 +487,7 @@ async function loadArticles() {
       .from('articles')
       .select('*')
       .order('published_at', { ascending: false })
-      .limit(70);
+      .limit(120);
 
     if (error) throw error;
 
@@ -547,7 +547,7 @@ function openArt(id) {
     <div class="am"><span>${date}</span>${pills}</div>
     <div class="aimg" style="background:linear-gradient(135deg,${colors[0]},${colors[1]})">
       ${a.image_url
-        ? `<img src="${a.image_url}" alt="${a.headline}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">`
+        ? `<img src="${a.image_url}" alt="${a.headline}" style="width:100%;height:100%;object-fit:cover;object-position:center top;position:absolute;inset:0;">`
         : `<span style="font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,235,.35);position:relative;z-index:1">${a.flag}</span>`
       }
     </div>
