@@ -328,13 +328,13 @@ async function main() {
 
   if (toProcess.length === 0) { await cleanOldArticles(); return; }
 
-  // Cap at 5 per run — free tier allows 20 req/day across 4 runs
-  const batch = toProcess.slice(0, 5);
-  console.log(`Processing batch of ${batch.length} (capped at 5 for free tier 20 RPD limit)`);
+  // Cap at 3 per run — keeps well within 30min GitHub Actions timeout
+  const batch = toProcess.slice(0, 3);
+  console.log(`Processing batch of ${batch.length} (capped at 3 to avoid timeout)`);
 
   let stored = 0, skipped = 0, errors = 0;
-  console.log('  Waiting 30s before starting to avoid rate limits...');
-  await new Promise(r => setTimeout(r, 30000));
+  console.log('  Waiting 15s before starting to avoid rate limits...');
+  await new Promise(r => setTimeout(r, 15000));
   for (const item of batch) {
     console.log(`\n→ [${item.section}] ${item.source}: ${item.title.substring(0, 65)}`);
     let fullText = null;
