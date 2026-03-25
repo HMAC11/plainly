@@ -23,24 +23,25 @@ const parser = new Parser({ timeout: 10000 });
 // Reuters RSS has been blocked since 2023. Replaced with AP News, BBC, FT.
 // SMH /rss/money.xml and /rss/business/companies.xml return 404 — fixed URLs.
 const FEEDS = [
-  // Australia — economics, housing, RBA, ASX, major policy only
+  // Australia
   { url: 'https://www.smh.com.au/rss/business.xml',                            section: 'aus',    label: 'SMH Business' },
   { url: 'https://www.theguardian.com/australia-news/rss',                     section: 'aus',    label: 'Guardian Australia' },
-  { url: 'https://www.abc.net.au/news/feed/2942460/rss.xml',                   section: 'pol',    label: 'ABC News Politics' },
-  // World — major geopolitics, wars, trade, central banks
+  // World
   { url: 'https://feeds.bbci.co.uk/news/world/rss.xml',                        section: 'world',  label: 'BBC World' },
   { url: 'https://www.theguardian.com/world/rss',                              section: 'world',  label: 'Guardian World' },
-  // US — Wall Street, Fed, trade policy, US economy
+  // US
   { url: 'https://feeds.marketwatch.com/marketwatch/topstories/',              section: 'us',     label: 'MarketWatch' },
   { url: 'https://www.theguardian.com/us-news/rss',                            section: 'us',     label: 'Guardian US' },
-  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml',                     section: 'us',     label: 'BBC Business' },
-  // Business — earnings, commodities, banking, energy, mining
+  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml',                     section: 'biz',    label: 'BBC Business' },
+  // Business
   { url: 'https://www.theguardian.com/business/rss',                           section: 'biz',    label: 'Guardian Business' },
-  // Tech — AI, semiconductors, big tech regulation, major launches
+  // Tech
   { url: 'https://feeds.arstechnica.com/arstechnica/index',                    section: 'tech',   label: 'Ars Technica' },
   { url: 'https://www.theguardian.com/technology/rss',                         section: 'tech',   label: 'Guardian Technology' },
-  // Politics — AU federal, international relations, defence
+  { url: 'https://feeds.bbci.co.uk/news/technology/rss.xml',                   section: 'tech',   label: 'BBC Technology' },
+  // Politics
   { url: 'https://www.theguardian.com/australia-news/australian-politics/rss', section: 'pol',    label: 'Guardian AU Politics' },
+  { url: 'https://www.abc.net.au/news/feed/2942460/rss.xml',                   section: 'pol',    label: 'ABC News Politics' },
   // Crypto
   { url: 'https://www.coindesk.com/arc/outboundfeeds/rss/',                    section: 'crypto', label: 'CoinDesk' },
   { url: 'https://decrypt.co/feed',                                            section: 'crypto', label: 'Decrypt' },
@@ -75,29 +76,10 @@ const BLOCK_KEYWORDS = [
   'obituary', 'letters to the editor',
 ];
 
-// Stories must relate to at least one of these major themes
-const REQUIRE_RELEVANCE = [
-  'economy', 'economic', 'market', 'stock', 'share', 'trade', 'tariff',
-  'inflation', 'interest rate', 'recession', 'GDP', 'budget', 'tax',
-  'bank', 'banking', 'finance', 'investment', 'fund', 'dollar', 'currency',
-  'oil', 'gas', 'energy', 'commodity', 'gold', 'iron ore', 'coal',
-  'war', 'conflict', 'military', 'missile', 'Iran', 'Russia', 'Ukraine',
-  'China', 'US', 'Trump', 'sanctions', 'NATO', 'geopolit',
-  'crypto', 'bitcoin', 'ethereum', 'blockchain',
-  'AI', 'artificial intelligence', 'tech giant', 'regulation',
-  'earnings', 'profit', 'revenue', 'merger', 'acquisition', 'IPO',
-  'RBA', 'Fed', 'central bank', 'rate cut', 'rate hike',
-  'housing', 'property', 'mortgage', 'rent',
-  'election', 'policy', 'minister', 'parliament', 'legislation',
-  'ASX', 'S&P', 'Nasdaq', 'Wall Street', 'commodity',
-];
-
 function isRelevant(title) {
   const t = title.toLowerCase();
-  // Hard block first
+  // Hard block — drop anything matching these
   if (BLOCK_KEYWORDS.some(kw => t.includes(kw.toLowerCase()))) return false;
-  // Must match at least one relevant theme
-  if (!REQUIRE_RELEVANCE.some(kw => t.includes(kw.toLowerCase()))) return false;
   return true;
 }
 
