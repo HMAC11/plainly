@@ -79,7 +79,11 @@ const BLOCK_KEYWORDS = [
 function isRelevant(title) {
   const t = title.toLowerCase();
   // Hard block — drop anything matching these
-  if (BLOCK_KEYWORDS.some(kw => t.includes(kw.toLowerCase()))) return false;
+  const hit = BLOCK_KEYWORDS.find(kw => t.includes(kw.toLowerCase()));
+  if (hit) {
+    console.log(`  ↩ Filtered (off-topic): ${title.substring(0, 60)} [blocked by: "${hit}"]`);
+    return false;
+  }
   return true;
 }
 
@@ -295,7 +299,6 @@ async function main() {
   const unique = allItems.filter(item => {
     if (!item.title || seen.has(item.title)) return false;
     if (!isRelevant(item.title)) {
-      console.log(`  ↩ Filtered (off-topic): ${item.title.substring(0, 60)}`);
       return false;
     }
     seen.add(item.title); return true;
