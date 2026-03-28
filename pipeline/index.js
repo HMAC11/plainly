@@ -246,9 +246,43 @@ function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim().replace(/\s+/g, '-').substring(0, 70);
 }
 
-async function alreadyExists(slug) {
-  const { data } = await db.from('articles').select('id').eq('slug', slug).limit(1);
-  return data && data.length > 0;
+async function alreadyExists(slug, title) {
+  // Check exact slug match
+  const { data: slugMatch } = await db.from('articles').select('id').eq('slug', slug).limit(1);
+  if (slugMatch && slugMatch.length > 0) return true;
+
+  // Check for very similar headlines published in the last 24 hours
+  // Strip common words and compare core keywords
+  const keywords = title.toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '')
+    .split(' ')
+    .filter(w => w.length > 4)
+    .slice(0, 5)
+    .join(' & ');
+
+  if (keywords.length > 10) {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: similar } = await db.from('articles')
+      .select('id, headline')
+      .gte('published_at', cutoff)
+      .limit(20);
+    
+    if (similar) {
+      for (const a of similar) {
+        const existing = a.headline.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+        const newTitle = title.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+        // Count matching words
+        const existingWords = new Set(existing.split(' ').filter(w => w.length > 4));
+        const newWords = newTitle.split(' ').filter(w => w.length > 4);
+        const matches = newWords.filter(w => existingWords.has(w)).length;
+        if (matches >= 3) {
+          console.log(`  ↩ Too similar to existing: "${a.headline.substring(0, 50)}"`);
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 async function storeArticle(processed, original, imageUrl = null) {
@@ -301,7 +335,7 @@ async function main() {
 
   const toProcess = [];
   for (const item of unique) {
-    if (!(await alreadyExists(slugify(item.title)))) toProcess.push(item);
+    if (!(await alreadyExists(slugify(item.title), item.title))) toProcess.push(item);
   }
   console.log(`New to process: ${toProcess.length}`);
 
